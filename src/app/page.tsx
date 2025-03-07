@@ -208,6 +208,12 @@ export default function Home() {
               display: none;
             }
           }
+
+          /* Improve placeholder color for better readability */
+          ::placeholder {
+            color: #495057;
+            opacity: 1;
+          }
         `}</style>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-2 gradient-text text-center">
           MFuture AI
@@ -218,7 +224,7 @@ export default function Home() {
         <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg transition-transform transform hover:scale-105 p-0">
           <textarea
             placeholder="Search AI..."
-            className="w-full p-3 sm:p-4 pr-10 sm:pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-[#ced4da] focus:border-transparent bg-white resize-none overflow-y-auto scrollbar-hide"
+            className="w-full p-3 sm:p-4 pr-10 sm:pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-[#ced4da] focus:border-transparent bg-white resize-none overflow-y-auto scrollbar-hide text-gray-900"
             style={{ lineHeight: "1.5", maxHeight: "4.5em" }}
             rows={1}
             onInput={(e) => {
@@ -237,7 +243,7 @@ export default function Home() {
           />
           <button
             onClick={handleSearchClick}
-            className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 p-1 sm:p-2 text-gray-500 hover:text-gray-700 cursor-pointer"
+            className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 p-1 sm:p-2 text-gray-600 hover:text-gray-900 cursor-pointer"
             aria-label="Search"
           >
             <svg
@@ -265,12 +271,14 @@ export default function Home() {
           }`}
           style={{ maxHeight: "calc(100vh - 20px)", marginBottom: "20px" }}
         >
-          <h2 className="text-lg sm:text-xl font-bold mb-2">Search Result</h2>
+          <h2 className="text-lg sm:text-xl font-bold mb-2 text-gray-900">
+            Search Result
+          </h2>
           <div
             className="w-full p-3 sm:p-4 border border-gray-300 rounded-lg bg-white overflow-y-auto scrollbar-hide"
             style={{ minHeight: "120px", maxHeight: "calc(100vh - 150px)" }}
           >
-            <p className="text-gray-700 scrollbar-hide text-sm sm:text-base">
+            <p className="text-gray-900 scrollbar-hide text-sm sm:text-base">
               {displayedText}
             </p>
           </div>
@@ -279,7 +287,7 @@ export default function Home() {
 
       {snackbarVisible && (
         <div
-          className="fixed bottom-4 right-4 p-3 sm:p-4 bg-white text-gray-800 rounded-xl shadow-md text-sm sm:text-base"
+          className="fixed bottom-4 right-4 p-3 sm:p-4 bg-white text-gray-900 rounded-xl shadow-md text-sm sm:text-base"
           style={{
             transform: snackbarInitialRender
               ? "translateY(100px)"
