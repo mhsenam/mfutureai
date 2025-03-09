@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
-import { getAnalytics } from "firebase/analytics";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -18,7 +17,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const analytics = getAnalytics(app);
 
 // Log the configuration (without sensitive data)
 console.log("Firebase initialized with project:", firebaseConfig.projectId);
@@ -41,4 +39,4 @@ enableIndexedDbPersistence(db)
     }
   });
 
-export { auth, db, analytics };
+export { auth, db };
