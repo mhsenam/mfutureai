@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  FaGithub,
-  FaLinkedin,
-  FaInstagram,
-  FaXTwitter,
-  FaDumbbell,
-} from "react-icons/fa6";
+import { FaGithub, FaLinkedin, FaInstagram, FaXTwitter } from "react-icons/fa6";
 
 function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
@@ -24,7 +17,6 @@ interface Testimonial {
 }
 
 export default function Home() {
-  const router = useRouter();
   const [shuffledTestimonials, setShuffledTestimonials] = useState<
     Testimonial[]
   >([]);
@@ -239,11 +231,17 @@ export default function Home() {
             user-select: none;
             -webkit-tap-highlight-color: transparent;
           }
+
+          .dotted-pattern {
+            background-image: radial-gradient(#212529 1px, transparent 1px);
+            background-size: 24px 24px;
+            opacity: 0.1;
+          }
         `}</style>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-2 gradient-text text-center">
           MFuture AI
         </h1>
-        <p className="text-sm md:text-base lg:text-lg text-gray-900 mb-4 sm:mb-6 text-center">
+        <p className="text-sm md:text-base lg:text-lg text-gray-900 dark:text-gray-100 mb-4 sm:mb-6 text-center">
           Made with ❤️ by Mohsen Amini
         </p>
         <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg transition-transform transform hover:scale-105 p-0">
@@ -309,19 +307,15 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col sm:flex-row gap-3 button-container">
-          <button
-            onClick={() => router.push("/fitness-tracker")}
-            className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors nav-button"
-          >
-            <FaDumbbell /> Fitness Tracker
-          </button>
-          <button
-            onClick={() => router.push("/login")}
-            className="inline-flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors nav-button"
-          >
-            Sign In / Register
-          </button>
+        <div className="mt-6 text-center max-w-2xl">
+          <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+            Welcome to Your Fitness Journey
+          </h2>
+          <p className="text-gray-700 dark:text-gray-300">
+            Track your workouts, monitor your weight progress, and achieve your
+            fitness goals. Use the navigation menu to access the fitness
+            tracker.
+          </p>
         </div>
       </main>
 
@@ -350,15 +344,15 @@ export default function Home() {
       )}
 
       {/* Footer with social media links */}
-      <footer className="w-full py-3 sm:py-4 bg-gray-100 border-t border-gray-200 mt-auto">
+      <footer className="w-full py-3 sm:py-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto relative z-10 transition-colors">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-center">
-            <div className="flex space-x-4 sm:space-x-6 mb-2">
+            <div className="flex space-x-4 sm:space-x-20 mb-2">
               <a
                 href="https://github.com/mhsenam"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-gray-900 social-icon"
+                className="mr-5 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 social-icon"
                 aria-label="GitHub"
               >
                 <FaGithub size={20} className="sm:w-6 sm:h-6" />
@@ -367,7 +361,7 @@ export default function Home() {
                 href="https://linkedin.com/in/mhsenam"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-gray-900 social-icon"
+                className="mr-5 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 social-icon"
                 aria-label="LinkedIn"
               >
                 <FaLinkedin size={20} className="sm:w-6 sm:h-6" />
@@ -376,7 +370,7 @@ export default function Home() {
                 href="https://instagram.com/mhsenamm"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-gray-900 social-icon"
+                className="mr-5 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 social-icon"
                 aria-label="Instagram"
               >
                 <FaInstagram size={20} className="sm:w-6 sm:h-6" />
@@ -385,13 +379,13 @@ export default function Home() {
                 href="https://x.com/mhsenam"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-700 hover:text-gray-900 social-icon"
+                className=" text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 social-icon"
                 aria-label="X (Twitter)"
               >
                 <FaXTwitter size={20} className="sm:w-6 sm:h-6" />
               </a>
             </div>
-            <p className="text-xs sm:text-sm text-gray-600 text-center">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
               © {new Date().getFullYear()} MFuture AI. All rights reserved.
             </p>
           </div>
