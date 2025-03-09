@@ -431,6 +431,39 @@ export default function FitnessTracker() {
               background-size: 24px 24px;
               opacity: 0.1;
             }
+
+            .calendar-day {
+              aspect-ratio: 1 / 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              cursor: pointer;
+              transition: all 0.2s;
+            }
+
+            .calendar-day:hover {
+              background-color: rgba(59, 130, 246, 0.1);
+            }
+
+            .calendar-day.selected {
+              background-color: rgba(59, 130, 246, 0.2);
+              font-weight: bold;
+            }
+
+            .calendar-day.has-weight {
+              border-bottom: 2px solid #3b82f6;
+            }
+
+            .weight-value {
+              font-size: 0.7rem;
+              color: #3b82f6;
+            }
+
+            ::placeholder {
+              color: #495057;
+              opacity: 1;
+            }
           `}</style>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 sm:p-8 shadow-lg">
             <div className="flex flex-col items-center">
@@ -483,7 +516,26 @@ export default function FitnessTracker() {
 
           .weight-value {
             font-size: 0.7rem;
-            color: #3b82f6;
+            color: #2563eb;
+            font-weight: 500;
+          }
+
+          /* Improve placeholder color for better readability */
+          ::placeholder {
+            color: #495057;
+            opacity: 1;
+          }
+
+          /* Improve text contrast */
+          .text-contrast {
+            text-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
+          }
+
+          /* Add background to improve text visibility */
+          .text-with-bg {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 2px 4px;
+            border-radius: 2px;
           }
         `}</style>
 
@@ -513,7 +565,7 @@ export default function FitnessTracker() {
               </Link>
             </div>
           </div>
-          <p className="text-sm md:text-base text-gray-700">
+          <p className="text-sm md:text-base text-gray-900 mb-4 sm:mb-6 text-center">
             Track your workouts and monitor your fitness progress over time.
           </p>
         </div>
@@ -524,8 +576,8 @@ export default function FitnessTracker() {
             <button
               className={`py-2 px-4 font-medium text-sm sm:text-base ${
                 activeTab === "workouts"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "border-b-2 border-blue-600 text-blue-700"
+                  : "text-gray-700 hover:text-gray-900"
               }`}
               onClick={() => setActiveTab("workouts")}
             >
@@ -571,7 +623,7 @@ export default function FitnessTracker() {
                     <div>
                       <label
                         htmlFor="date"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="block text-sm font-medium text-gray-800 mb-1"
                       >
                         Date
                       </label>
@@ -681,8 +733,8 @@ export default function FitnessTracker() {
               </h2>
 
               {workouts.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-gray-700">
                     No workouts recorded yet. Start by adding your first
                     workout!
                   </p>
@@ -697,7 +749,7 @@ export default function FitnessTracker() {
                     .map((workout) => (
                       <div
                         key={workout.id}
-                        className="border border-gray-200 rounded-lg p-4 bg-white/90 hover:shadow-md transition-shadow"
+                        className="border border-gray-300 rounded-lg p-4 bg-white/95 hover:shadow-md transition-shadow"
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex items-center gap-3">
@@ -708,7 +760,7 @@ export default function FitnessTracker() {
                               <h3 className="font-medium text-gray-900">
                                 {workout.name}
                               </h3>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-gray-700">
                                 {new Date(workout.date).toLocaleDateString()} •{" "}
                                 {workout.duration} minutes
                               </p>
@@ -717,14 +769,14 @@ export default function FitnessTracker() {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleEdit(workout)}
-                              className="text-blue-600 hover:text-blue-800 p-1"
+                              className="text-blue-700 hover:text-blue-900 p-1"
                               aria-label="Edit workout"
                             >
                               <FaEdit />
                             </button>
                             <button
                               onClick={() => handleDelete(workout.id)}
-                              className="text-red-600 hover:text-red-800 p-1"
+                              className="text-red-700 hover:text-red-900 p-1"
                               aria-label="Delete workout"
                             >
                               <FaTrash />
@@ -732,7 +784,7 @@ export default function FitnessTracker() {
                           </div>
                         </div>
                         {workout.notes && (
-                          <div className="mt-2 text-sm text-gray-700 border-t border-gray-100 pt-2">
+                          <div className="mt-2 text-sm text-gray-800 border-t border-gray-100 pt-2">
                             {workout.notes}
                           </div>
                         )}
@@ -826,14 +878,16 @@ export default function FitnessTracker() {
                     return (
                       <div
                         key={`day-${day}`}
-                        className={`calendar-day border border-gray-200 rounded-md ${
-                          isSelected ? "selected" : ""
+                        className={`calendar-day border border-gray-300 rounded-md ${
+                          isSelected ? "selected bg-blue-100" : ""
                         } ${weight ? "has-weight" : ""}`}
                         onClick={() => handleDateClick(day)}
                       >
-                        <div>{day}</div>
+                        <div className="text-gray-900">{day}</div>
                         {weight && (
-                          <div className="weight-value">{weight}kg</div>
+                          <div className="weight-value text-blue-700 font-medium">
+                            {weight}kg
+                          </div>
                         )}
                       </div>
                     );
@@ -857,7 +911,7 @@ export default function FitnessTracker() {
                       value={weightInput}
                       onChange={(e) => setWeightInput(e.target.value)}
                       placeholder="Enter weight in kg"
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                       required
                     />
                   </div>
@@ -879,13 +933,13 @@ export default function FitnessTracker() {
             </div>
 
             {/* Weight History */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg w-full max-w-4xl">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg w-full max-w-4xl">
               <h2 className="text-xl font-semibold mb-4 text-gray-900">
                 Weight History
               </h2>
 
               {weightEntries.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-gray-700 bg-gray-50 rounded-lg">
                   <p>
                     No weight entries yet. Use the calendar above to record your
                     weight.
@@ -913,17 +967,17 @@ export default function FitnessTracker() {
                       return (
                         <div
                           key={entry.date}
-                          className="flex justify-between items-center p-3 border-b border-gray-100"
+                          className="flex justify-between items-center p-3 border-b border-gray-200 bg-white/90 rounded-md mb-1"
                         >
                           <div className="flex items-center gap-3">
                             <div className="p-2 bg-gray-100 rounded-full">
-                              <FaWeight className="text-blue-600" />
+                              <FaWeight className="text-blue-700" />
                             </div>
                             <div>
                               <p className="font-medium text-gray-900">
                                 {entry.weight} kg
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-gray-700">
                                 {new Date(entry.date).toLocaleDateString()}
                               </p>
                             </div>
@@ -932,10 +986,10 @@ export default function FitnessTracker() {
                             <div
                               className={`text-sm font-medium ${
                                 change < 0
-                                  ? "text-green-600"
+                                  ? "text-green-700"
                                   : change > 0
-                                  ? "text-red-600"
-                                  : "text-gray-600"
+                                  ? "text-red-700"
+                                  : "text-gray-700"
                               }`}
                             >
                               {change < 0 ? "↓" : change > 0 ? "↑" : "="}
