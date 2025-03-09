@@ -227,12 +227,24 @@ export default function FitnessTracker() {
   const handleWeightSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.error("No user is logged in");
+      return;
+    }
 
     const weight = parseFloat(weightInput);
-    if (isNaN(weight) || weight <= 0) return;
+    if (isNaN(weight) || weight <= 0) {
+      console.error("Invalid weight value:", weightInput);
+      return;
+    }
 
     try {
+      console.log("Attempting to save weight:", {
+        userId: currentUser.uid,
+        date: selectedDate,
+        weight: weight,
+      });
+
       // Use the date as the document ID for easy updates
       const weightDocId = `${currentUser.uid}_${selectedDate}`;
 
@@ -242,6 +254,8 @@ export default function FitnessTracker() {
         weight: weight,
         updatedAt: new Date().toISOString(),
       });
+
+      console.log("Weight saved successfully");
 
       // Reset input
       setWeightInput("");
