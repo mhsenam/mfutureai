@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FaGithub, FaLinkedin, FaInstagram, FaXTwitter } from "react-icons/fa6";
+import { useRouter } from "next/navigation";
+import {
+  FaGithub,
+  FaLinkedin,
+  FaInstagram,
+  FaXTwitter,
+  FaDumbbell,
+} from "react-icons/fa6";
 
 function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
@@ -17,6 +24,7 @@ interface Testimonial {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [shuffledTestimonials, setShuffledTestimonials] = useState<
     Testimonial[]
   >([]);
@@ -126,7 +134,12 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen relative">
+      {/* Dotted pattern background - visible on all devices */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="dotted-pattern absolute inset-0" />
+      </div>
+
       {/* Hide testimonials on mobile devices */}
       {!isMobile && (
         <div className="background-pattern hidden md:block">
@@ -138,7 +151,7 @@ export default function Home() {
         </div>
       )}
 
-      <main className="flex-grow flex flex-col items-center justify-center px-4 py-6 sm:p-8 relative overflow-visible">
+      <main className="flex-grow flex flex-col items-center justify-center px-4 py-6 sm:p-8 relative z-10">
         <style jsx>{`
           @keyframes gradient-rotate {
             0% {
@@ -214,11 +227,23 @@ export default function Home() {
             color: #495057;
             opacity: 1;
           }
+
+          .button-container {
+            position: relative;
+            z-index: 20;
+            pointer-events: auto;
+          }
+
+          .nav-button {
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+          }
         `}</style>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-2 gradient-text text-center">
           MFuture AI
         </h1>
-        <p className="text-sm md:text-base lg:text-lg text-gray-700 mb-4 sm:mb-6 text-center">
+        <p className="text-sm md:text-base lg:text-lg text-gray-900 mb-4 sm:mb-6 text-center">
           Made with ❤️ by Mohsen Amini
         </p>
         <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg transition-transform transform hover:scale-105 p-0">
@@ -282,6 +307,21 @@ export default function Home() {
               {displayedText}
             </p>
           </div>
+        </div>
+
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 button-container">
+          <button
+            onClick={() => router.push("/fitness-tracker")}
+            className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors nav-button"
+          >
+            <FaDumbbell /> Fitness Tracker
+          </button>
+          <button
+            onClick={() => router.push("/login")}
+            className="inline-flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors nav-button"
+          >
+            Sign In / Register
+          </button>
         </div>
       </main>
 
