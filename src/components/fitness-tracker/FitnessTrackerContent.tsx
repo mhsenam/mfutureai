@@ -31,7 +31,10 @@ import {
   orderBy,
   Timestamp,
   limit,
+  enableNetwork,
+  disableNetwork,
 } from "firebase/firestore";
+import { FirebaseError } from "firebase/app";
 
 // Define WeightEntry interface directly here to avoid import issues
 interface WeightEntry {
@@ -252,7 +255,134 @@ export default function FitnessTracker() {
     }
 
     console.log("Current user changed, fetching weight history");
+
+    // Use a one-time fetch instead of a real-time listener initially
     fetchWeightHistory();
+
+    // Set up a more controlled real-time listener with error handling
+    let unsubscribe: (() => void) | null = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+    const retryDelay = 5000; // 5 seconds
+
+    const setupListener = async () => {
+      try {
+        // Check if we already have a listener
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+
+        // Check network status first
+        if (!navigator.onLine) {
+          console.log("Device is offline, skipping real-time listener setup");
+          return;
+        }
+
+        console.log("Setting up real-time listener for weight entries");
+
+        const weightRef = collection(db, "weightEntries");
+        const q = query(
+          weightRef,
+          where("userId", "==", currentUser.uid),
+          orderBy("timestamp", "desc")
+        );
+
+        unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            console.log(
+              "Real-time update received, snapshot size:",
+              snapshot.size
+            );
+
+            const weightData: WeightEntry[] = [];
+            snapshot.forEach((doc) => {
+              const data = doc.data();
+              try {
+                weightData.push({
+                  id: doc.id,
+                  weight: parseFloat(data.weight) || 0,
+                  date: data.date || "Unknown date",
+                });
+              } catch (err) {
+                console.error(
+                  "Error parsing weight entry in real-time update:",
+                  err,
+                  data
+                );
+              }
+            });
+
+            console.log(
+              "Updated weight entries from real-time listener:",
+              weightData.length
+            );
+            setWeightEntries(weightData);
+            setIsInitialLoading(false);
+
+            // Reset retry count on successful update
+            retryCount = 0;
+          },
+          (error) => {
+            console.error("Error in real-time listener:", error);
+
+            // If we have network issues, try to recover
+            if (retryCount < maxRetries) {
+              retryCount++;
+              console.log(
+                `Listener error, retrying (${retryCount}/${maxRetries}) in ${
+                  retryDelay / 1000
+                }s...`
+              );
+
+              // Clean up the current listener
+              if (unsubscribe) {
+                unsubscribe();
+                unsubscribe = null;
+              }
+
+              // Try to reset the Firebase connection
+              handleFirebaseConnectionIssue().then(() => {
+                // Set a timeout before retrying
+                setTimeout(setupListener, retryDelay);
+              });
+            } else {
+              console.log(
+                "Max retries exceeded, falling back to manual fetching"
+              );
+              setError(
+                `Real-time updates unavailable: ${error.message}. Using manual updates instead.`
+              );
+              setIsInitialLoading(false);
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Failed to set up real-time listener:", err);
+        setIsInitialLoading(false);
+      }
+    };
+
+    // Initial setup
+    setupListener();
+
+    // Set up a periodic refresh as a fallback
+    const refreshInterval = setInterval(() => {
+      if (navigator.onLine) {
+        console.log("Performing periodic refresh of weight data");
+        fetchWeightHistory(true);
+      }
+    }, 60000); // Refresh every minute
+
+    // Clean up function
+    return () => {
+      if (unsubscribe) {
+        console.log("Cleaning up real-time listener");
+        unsubscribe();
+      }
+      clearInterval(refreshInterval);
+    };
   }, [currentUser]);
 
   // Handle form input changes
@@ -332,7 +462,30 @@ export default function FitnessTracker() {
     }
   };
 
-  // Handle weight submission
+  // Update the handleFirebaseConnectionIssue function to use a different approach
+  const handleFirebaseConnectionIssue = async () => {
+    try {
+      console.log("Attempting to fix Firebase connection...");
+
+      // First, disable the network to reset connections
+      await disableNetwork(db);
+      console.log("Network disabled");
+
+      // Wait a moment
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Then re-enable it
+      await enableNetwork(db);
+      console.log("Network re-enabled");
+
+      return true;
+    } catch (err) {
+      console.error("Failed to reset Firebase connection:", err);
+      return false;
+    }
+  };
+
+  // Update the handleWeightSubmit function to handle errors better
   const handleWeightSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -357,51 +510,85 @@ export default function FitnessTracker() {
     setIsSaving(true);
     setError(null);
 
+    // Create the weight entry object with all required fields
+    const newWeightEntry = {
+      userId: currentUser.uid,
+      weight: weightValue,
+      date: selectedDate, // Store as string for easier querying
+      timestamp: Timestamp.fromDate(new Date(selectedDate)), // Also store as Timestamp for ordering
+      createdAt: Timestamp.now(),
+    };
+
+    let retryCount = 0;
+    const maxRetries = 2;
+
+    const attemptSave = async () => {
+      try {
+        console.log(
+          `Saving weight entry (attempt ${retryCount + 1}):`,
+          newWeightEntry
+        );
+
+        // IMPORTANT: Using "weightEntries" collection consistently
+        const weightRef = collection(db, "weightEntries");
+
+        // Use addDoc to add the document to the collection
+        const docRef = await addDoc(weightRef, newWeightEntry);
+        console.log("Document written with ID:", docRef.id);
+
+        // Clear form
+        setWeightInput("");
+        setSelectedDate(new Date().toISOString().split("T")[0]);
+
+        // Set success message
+        setSuccessMessage("Weight saved successfully!");
+
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSuccessMessage(null);
+        }, 3000);
+
+        return true;
+      } catch (err) {
+        console.error(
+          `Error saving weight entry (attempt ${retryCount + 1}):`,
+          err
+        );
+
+        // Check if it's a network error
+        if (
+          err instanceof FirebaseError &&
+          (err.code === "failed-precondition" ||
+            err.code === "unavailable" ||
+            err.code.includes("network"))
+        ) {
+          console.log(
+            "Network error detected, attempting to fix connection..."
+          );
+
+          // Try to fix the connection
+          const connectionFixed = await handleFirebaseConnectionIssue();
+
+          // If we fixed the connection and haven't exceeded max retries, try again
+          if (connectionFixed && retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Retrying save (attempt ${retryCount + 1})...`);
+            return await attemptSave();
+          }
+        }
+
+        // If we get here, we've either exceeded retries or it's not a network error
+        setError(
+          `Failed to save your weight entry: ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`
+        );
+        return false;
+      }
+    };
+
     try {
-      console.log("Saving weight entry:", {
-        weight: weightValue,
-        date: selectedDate,
-        userId: currentUser.uid,
-      });
-
-      // IMPORTANT: Using "weightEntries" collection consistently
-      const weightRef = collection(db, "weightEntries");
-
-      // Create the weight entry object with all required fields
-      const newWeightEntry = {
-        userId: currentUser.uid,
-        weight: weightValue,
-        date: selectedDate, // Store as string for easier querying
-        timestamp: Timestamp.fromDate(new Date(selectedDate)), // Also store as Timestamp for ordering
-        createdAt: Timestamp.now(),
-      };
-
-      console.log("Weight entry object:", newWeightEntry);
-
-      // Use addDoc to add the document to the collection
-      const docRef = await addDoc(weightRef, newWeightEntry);
-      console.log("Document written with ID:", docRef.id);
-
-      // Clear form
-      setWeightInput("");
-      setSelectedDate(new Date().toISOString().split("T")[0]);
-
-      console.log("Weight entry saved successfully!");
-
-      // Set success message instead of alert
-      setSuccessMessage("Weight saved successfully!");
-
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (err) {
-      console.error("Error saving weight entry:", err);
-      setError(
-        `Failed to save your weight entry: ${
-          err instanceof Error ? err.message : "Unknown error"
-        }`
-      );
+      await attemptSave();
     } finally {
       // IMPORTANT: Always reset the loading state, even if there's an error
       setIsSaving(false);
@@ -630,6 +817,69 @@ export default function FitnessTracker() {
   useEffect(() => {
     verifyFirebaseConnection();
   }, []);
+
+  // Add a function to check network status
+  const checkNetworkStatus = () => {
+    return navigator.onLine;
+  };
+
+  // Add this useEffect to monitor network status
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log("Device is online");
+      // Re-enable Firestore network
+      enableNetwork(db).catch((err) =>
+        console.error("Failed to enable network:", err)
+      );
+    };
+
+    const handleOffline = () => {
+      console.log("Device is offline");
+      // Disable Firestore network to prevent unnecessary retries
+      disableNetwork(db).catch((err) =>
+        console.error("Failed to disable network:", err)
+      );
+
+      // Show an error if we're in the middle of saving
+      if (isSaving) {
+        setError(
+          "You are offline. Please check your internet connection and try again."
+        );
+        setIsSaving(false);
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [isSaving]);
+
+  // Add a reset function to clear any stuck states
+  const resetStates = () => {
+    setIsSaving(false);
+    setIsInitialLoading(false);
+    setIsFetching(false);
+    setError(null);
+    setSuccessMessage(null);
+  };
+
+  // Add a function to manually refresh data
+  const manualRefresh = async () => {
+    if (!currentUser) return;
+
+    console.log("Manual refresh requested");
+    await fetchWeightHistory(true);
+    setSuccessMessage("Data refreshed successfully!");
+
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
+  };
 
   // If still loading or not logged in, show loading state
   if (!currentUser || isInitialLoading) {
@@ -1150,9 +1400,24 @@ export default function FitnessTracker() {
                   </button>
                 </form>
                 {error && (
-                  <p className="text-red-500 text-sm mt-2 bg-red-50 p-2 rounded-md">
-                    {error}
-                  </p>
+                  <div className="text-red-500 text-sm mt-2 bg-red-50 p-2 rounded-md">
+                    <p>{error}</p>
+                    {!checkNetworkStatus() && (
+                      <p className="mt-1">
+                        You appear to be offline. Please check your internet
+                        connection.
+                      </p>
+                    )}
+                    <button
+                      onClick={() => {
+                        resetStates();
+                        handleFirebaseConnectionIssue();
+                      }}
+                      className="mt-2 px-3 py-1 bg-blue-500 text-white rounded-md text-xs"
+                    >
+                      Reset Connection & Try Again
+                    </button>
+                  </div>
                 )}
                 {successMessage && (
                   <p className="text-green-500 text-sm mt-2 bg-green-50 p-2 rounded-md">
@@ -1162,6 +1427,25 @@ export default function FitnessTracker() {
               </div>
 
               {/* Weight History */}
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Weight History
+                </h2>
+                <button
+                  onClick={manualRefresh}
+                  disabled={isFetching}
+                  className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 transition-colors flex items-center gap-1"
+                >
+                  {isFetching ? (
+                    <>
+                      <div className="inline-block h-3 w-3 border-2 border-blue-700 border-t-transparent rounded-full animate-spin"></div>
+                      Refreshing...
+                    </>
+                  ) : (
+                    "Refresh Data"
+                  )}
+                </button>
+              </div>
               <WeightHistory
                 weightHistory={weightEntries}
                 isLoading={isInitialLoading || isFetching}
@@ -1180,20 +1464,35 @@ export default function FitnessTracker() {
             <p>isFetching: {isFetching ? "true" : "false"}</p>
             <p>User ID: {currentUser?.uid || "Not logged in"}</p>
             <p>Weight Entries: {weightEntries.length}</p>
-            <button
-              onClick={() => {
-                console.log("Current state:", {
-                  isSaving,
-                  isInitialLoading,
-                  isFetching,
-                  currentUser,
-                  weightEntries,
-                });
-              }}
-              className="mt-1 px-2 py-1 bg-blue-500 text-white rounded text-xs"
-            >
-              Log State to Console
-            </button>
+            <p>Network Status: {checkNetworkStatus() ? "Online" : "Offline"}</p>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => {
+                  console.log("Current state:", {
+                    isSaving,
+                    isInitialLoading,
+                    isFetching,
+                    currentUser,
+                    weightEntries,
+                  });
+                }}
+                className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
+              >
+                Log State
+              </button>
+              <button
+                onClick={resetStates}
+                className="px-2 py-1 bg-red-500 text-white rounded text-xs"
+              >
+                Reset States
+              </button>
+              <button
+                onClick={handleFirebaseConnectionIssue}
+                className="px-2 py-1 bg-green-500 text-white rounded text-xs"
+              >
+                Reset Connection
+              </button>
+            </div>
           </div>
         )}
       </main>
