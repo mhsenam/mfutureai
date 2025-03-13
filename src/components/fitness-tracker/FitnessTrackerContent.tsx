@@ -12,7 +12,6 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaCalendarDay,
-  FaTimes,
   FaSignOutAlt,
 } from "react-icons/fa";
 import Link from "next/link";
@@ -27,7 +26,103 @@ import {
   query,
   where,
   onSnapshot,
+  addDoc,
+  getDocs,
+  orderBy,
+  Timestamp,
 } from "firebase/firestore";
+
+// Define WeightEntry interface directly here to avoid import issues
+interface WeightEntry {
+  id: string;
+  weight: number;
+  date: string;
+}
+
+// Create a simple WeightHistory component to avoid import issues
+function WeightHistory({
+  weightHistory,
+  isLoading,
+  error,
+}: {
+  weightHistory: WeightEntry[];
+  isLoading: boolean;
+  error: string | null;
+}) {
+  if (isLoading) {
+    return (
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold mb-3 text-gray-900">
+          Weight History
+        </h3>
+        <div className="text-center py-4 flex items-center justify-center">
+          <div className="inline-block h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+          <span>Loading your weight history...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold mb-3 text-gray-900">
+          Weight History
+        </h3>
+        <div className="text-center py-4 text-red-500 bg-red-50 rounded-md p-2">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (weightHistory.length === 0) {
+    return (
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold mb-3 text-gray-900">
+          Weight History
+        </h3>
+        <div className="text-center py-4 text-gray-600 bg-gray-50 rounded-md p-2">
+          No weight entries yet. Start tracking today!
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-lg font-semibold mb-3 text-gray-900">
+        Weight History
+      </h3>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Weight (kg)
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {weightHistory.map((entry) => (
+              <tr key={entry.id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {new Date(entry.date).toLocaleDateString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {entry.weight}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 // Define workout types
 type WorkoutType = "strength" | "cardio" | "flexibility";
@@ -40,12 +135,6 @@ interface WorkoutEntry {
   name: string;
   duration: number; // in minutes
   notes?: string;
-}
-
-// Define weight entry interface
-interface WeightEntry {
-  date: string;
-  weight: number;
 }
 
 export default function FitnessTracker() {
@@ -83,6 +172,8 @@ export default function FitnessTracker() {
 
   // Loading state
   const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -132,8 +223,9 @@ export default function FitnessTracker() {
       snapshot.forEach((doc) => {
         const data = doc.data();
         weightData.push({
-          date: data.date,
+          id: doc.id,
           weight: data.weight,
+          date: data.date,
         });
       });
       setWeightEntries(weightData);
@@ -144,6 +236,16 @@ export default function FitnessTracker() {
       unsubscribeWorkouts();
       unsubscribeWeights();
     };
+  }, [currentUser]);
+
+  // Fetch user's weight history from Firebase when component mounts or user changes
+  useEffect(() => {
+    if (!currentUser) {
+      setWeightEntries([]);
+      return;
+    }
+
+    fetchWeightHistory();
   }, [currentUser]);
 
   // Handle form input changes
@@ -228,57 +330,75 @@ export default function FitnessTracker() {
     e.preventDefault();
 
     if (!currentUser) {
-      console.error("No user is logged in");
+      setError("You must be logged in to save weight data");
       return;
     }
 
-    const weight = parseFloat(weightInput);
-    if (isNaN(weight) || weight <= 0) {
-      console.error("Invalid weight value:", weightInput);
+    if (!weightInput || !selectedDate) {
+      setError("Please enter both weight and date");
       return;
     }
+
+    // Validate weight is a number
+    const weightValue = parseFloat(weightInput);
+    if (isNaN(weightValue) || weightValue <= 0) {
+      setError("Please enter a valid weight value");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
 
     try {
-      console.log("Attempting to save weight:", {
-        userId: currentUser.uid,
+      console.log("Saving weight entry:", {
+        weight: weightValue,
         date: selectedDate,
-        weight: weight,
+        userId: currentUser.uid,
       });
 
-      // Use the date as the document ID for easy updates
-      const weightDocId = `${currentUser.uid}_${selectedDate}`;
+      // Save weight entry to Firebase
+      const weightRef = collection(db, "weightEntries");
 
-      await setDoc(doc(db, "weights", weightDocId), {
+      // Create the weight entry object
+      const newWeightEntry = {
         userId: currentUser.uid,
+        weight: weightValue,
+        date: Timestamp.fromDate(new Date(selectedDate)),
+        createdAt: Timestamp.now(),
+      };
+
+      console.log("Weight entry object:", newWeightEntry);
+
+      // Use addDoc instead of setDoc for more reliable operation
+      const docRef = await addDoc(weightRef, newWeightEntry);
+      console.log("Document written with ID:", docRef.id);
+
+      // Update local state with the new entry
+      const newEntry: WeightEntry = {
+        id: docRef.id,
+        weight: weightValue,
         date: selectedDate,
-        weight: weight,
-        updatedAt: new Date().toISOString(),
-      });
+      };
 
-      console.log("Weight saved successfully");
+      setWeightEntries((prev) => [newEntry, ...prev]);
 
-      // Reset input
+      // Clear form
       setWeightInput("");
-    } catch (error) {
-      console.error("Error saving weight:", error);
-    }
-  };
+      setSelectedDate(new Date().toISOString().split("T")[0]);
 
-  // Clear weight for selected date
-  const handleClearWeight = async () => {
-    if (!currentUser) return;
+      console.log("Weight entry saved successfully!");
 
-    // Check if there's an entry for this date
-    const hasEntry = weightEntries.some((entry) => entry.date === selectedDate);
-
-    if (hasEntry) {
-      try {
-        const weightDocId = `${currentUser.uid}_${selectedDate}`;
-        await deleteDoc(doc(db, "weights", weightDocId));
-        setWeightInput("");
-      } catch (error) {
-        console.error("Error deleting weight:", error);
-      }
+      // Manually refresh weight history
+      fetchWeightHistory();
+    } catch (err) {
+      console.error("Error saving weight entry:", err);
+      setError(
+        `Failed to save your weight entry: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -416,6 +536,63 @@ export default function FitnessTracker() {
   };
 
   const weightTrend = getWeightTrend();
+
+  // Add this function outside of any other function but inside the component
+  const fetchWeightHistory = async () => {
+    if (!currentUser) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log("Fetching weight history for user:", currentUser.uid);
+      const weightRef = collection(db, "weightEntries");
+      const q = query(
+        weightRef,
+        where("userId", "==", currentUser.uid),
+        orderBy("date", "desc")
+      );
+
+      const querySnapshot = await getDocs(q);
+      const weightData: WeightEntry[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        try {
+          // Handle potential date format issues
+          let formattedDate = "";
+          if (data.date instanceof Timestamp) {
+            formattedDate = data.date.toDate().toISOString().split("T")[0];
+          } else if (data.date && typeof data.date.toDate === "function") {
+            formattedDate = data.date.toDate().toISOString().split("T")[0];
+          } else if (data.date) {
+            // If it's a string or another format, try to convert it
+            formattedDate = new Date(data.date).toISOString().split("T")[0];
+          }
+
+          weightData.push({
+            id: doc.id,
+            weight: parseFloat(data.weight) || 0,
+            date: formattedDate || "Unknown date",
+          });
+        } catch (err) {
+          console.error("Error parsing weight entry:", err, data);
+        }
+      });
+
+      console.log("Fetched weight entries:", weightData.length);
+      setWeightEntries(weightData);
+    } catch (err) {
+      console.error("Error fetching weight history:", err);
+      setError(
+        `Failed to load your weight history: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // If still loading or not logged in, show loading state
   if (!currentUser || loading) {
@@ -913,94 +1090,37 @@ export default function FitnessTracker() {
                       placeholder="Enter weight in kg"
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <button
                     type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+                    disabled={isLoading}
                   >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearWeight}
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors flex items-center gap-1"
-                  >
-                    <FaTimes size={14} /> Clear
+                    {isLoading ? (
+                      <>
+                        <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      "Save"
+                    )}
                   </button>
                 </form>
-              </div>
-            </div>
-
-            {/* Weight History */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg w-full max-w-4xl">
-              <h2 className="text-xl font-semibold mb-4 text-gray-900">
-                Weight History
-              </h2>
-
-              {weightEntries.length === 0 ? (
-                <div className="text-center py-8 text-gray-700 bg-gray-50 rounded-lg">
-                  <p>
-                    No weight entries yet. Use the calendar above to record your
-                    weight.
+                {error && (
+                  <p className="text-red-500 text-sm mt-2 bg-red-50 p-2 rounded-md">
+                    {error}
                   </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {weightEntries
-                    .sort(
-                      (a, b) =>
-                        new Date(b.date).getTime() - new Date(a.date).getTime()
-                    )
-                    .map((entry, index) => {
-                      // Calculate weight change if not the first entry
-                      let change = null;
-                      if (index < weightEntries.length - 1) {
-                        const nextEntry = weightEntries.sort(
-                          (a, b) =>
-                            new Date(b.date).getTime() -
-                            new Date(a.date).getTime()
-                        )[index + 1];
-                        change = entry.weight - nextEntry.weight;
-                      }
+                )}
+              </div>
 
-                      return (
-                        <div
-                          key={entry.date}
-                          className="flex justify-between items-center p-3 border-b border-gray-200 bg-white/90 rounded-md mb-1"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-100 rounded-full">
-                              <FaWeight className="text-blue-700" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {entry.weight} kg
-                              </p>
-                              <p className="text-sm text-gray-700">
-                                {new Date(entry.date).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          {change !== null && (
-                            <div
-                              className={`text-sm font-medium ${
-                                change < 0
-                                  ? "text-green-700"
-                                  : change > 0
-                                  ? "text-red-700"
-                                  : "text-gray-700"
-                              }`}
-                            >
-                              {change < 0 ? "↓" : change > 0 ? "↑" : "="}
-                              {Math.abs(change).toFixed(1)} kg
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
+              {/* Weight History */}
+              <WeightHistory
+                weightHistory={weightEntries}
+                isLoading={isLoading}
+                error={error}
+              />
             </div>
           </>
         )}
