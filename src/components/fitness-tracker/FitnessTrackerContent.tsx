@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   FaPlus,
   FaTrash,
@@ -240,6 +240,13 @@ export default function FitnessTracker() {
   const [showModal, setShowModal] = useState(false);
   const [modalDate, setModalDate] = useState<string>("");
   const [modalWeight, setModalWeight] = useState<string>("");
+
+  // Add these new state variables for long press functionality
+  const [longPressActive, setLongPressActive] = useState<number | null>(null);
+  const [longPressProgress, setLongPressProgress] = useState<number>(0);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressDuration = 2000; // 2 seconds in milliseconds
+  const longPressInterval = 50; // Update progress every 50ms
 
   // Redirect if not logged in
   useEffect(() => {
@@ -749,7 +756,7 @@ export default function FitnessTracker() {
     return entry ? entry.weight : null;
   };
 
-  // Update the handleDateClick function to show the modal on desktop
+  // Update the handleDateClick function to work on both mobile and desktop
   const handleDateClick = (day: number) => {
     const dateString = getDateString(day);
     setSelectedDate(dateString);
@@ -759,16 +766,79 @@ export default function FitnessTracker() {
       (entry) => entry.date === dateString
     );
 
-    // For desktop, show modal
-    if (window.innerWidth >= 768) {
-      // md breakpoint
-      setModalDate(dateString);
-      setModalWeight(existingEntry ? existingEntry.weight.toString() : "");
-      setShowModal(true);
-    } else {
-      // For mobile, just update the form fields
-      setWeightInput(existingEntry ? existingEntry.weight.toString() : "");
+    // Update the form fields for both mobile and desktop
+    setWeightInput(existingEntry ? existingEntry.weight.toString() : "");
+  };
+
+  // Update the handleDayMouseDown function to handle both click and long press
+  const handleDayMouseDown = (day: number) => {
+    if (window.innerWidth < 768) return; // Only for desktop
+
+    // First, handle the click to select the day
+    handleDateClick(day);
+
+    // Then set up the long press
+    setLongPressActive(day);
+    setLongPressProgress(0);
+
+    // Clear any existing timer
+    if (longPressTimer.current) {
+      clearInterval(longPressTimer.current);
     }
+
+    // Start a new timer that updates progress
+    let elapsed = 0;
+    longPressTimer.current = setInterval(() => {
+      elapsed += longPressInterval;
+      const progress = Math.min((elapsed / longPressDuration) * 100, 100);
+      setLongPressProgress(progress);
+
+      // When we reach 100%, show the modal
+      if (progress >= 100) {
+        clearInterval(longPressTimer.current!);
+        longPressTimer.current = null;
+
+        // Show modal with the selected date
+        const dateString = getDateString(day);
+
+        // Pre-fill weight input if there's an existing entry
+        const existingEntry = weightEntries.find(
+          (entry) => entry.date === dateString
+        );
+
+        setModalDate(dateString);
+        setModalWeight(existingEntry ? existingEntry.weight.toString() : "");
+        setShowModal(true);
+
+        // Reset long press state
+        setLongPressActive(null);
+        setLongPressProgress(0);
+      }
+    }, longPressInterval);
+  };
+
+  const handleDayMouseUp = () => {
+    // Clear the timer when mouse is released
+    if (longPressTimer.current) {
+      clearInterval(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
+    // Reset long press state
+    setLongPressActive(null);
+    setLongPressProgress(0);
+  };
+
+  const handleDayMouseLeave = () => {
+    // Clear the timer when mouse leaves the element
+    if (longPressTimer.current) {
+      clearInterval(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
+    // Reset long press state
+    setLongPressActive(null);
+    setLongPressProgress(0);
   };
 
   // Add a function to handle modal submission
@@ -1022,6 +1092,15 @@ export default function FitnessTracker() {
     }, 3000);
   };
 
+  // Clean up the interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearInterval(longPressTimer.current);
+      }
+    };
+  }, []);
+
   // If still loading or not logged in, show loading state
   if (!currentUser || isInitialLoading) {
     return (
@@ -1083,6 +1162,23 @@ export default function FitnessTracker() {
 
             .animate-fadeIn {
               animation: fadeIn 0.2s ease-out forwards;
+            }
+
+            /* Long press animation */
+            @keyframes pulse {
+              0% {
+                transform: scale(1);
+              }
+              50% {
+                transform: scale(1.05);
+              }
+              100% {
+                transform: scale(1);
+              }
+            }
+
+            .calendar-day[data-long-pressing="true"] {
+              animation: pulse 1s infinite;
             }
           `}</style>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 sm:p-8 shadow-lg">
@@ -1157,6 +1253,23 @@ export default function FitnessTracker() {
               background-color: rgba(255, 255, 255, 0.8);
               padding: 2px 4px;
               border-radius: 2px;
+            }
+
+            /* Long press animation */
+            @keyframes pulse {
+              0% {
+                transform: scale(1);
+              }
+              50% {
+                transform: scale(1.05);
+              }
+              100% {
+                transform: scale(1);
+              }
+            }
+
+            .calendar-day[data-long-pressing="true"] {
+              animation: pulse 1s infinite;
             }
           `}</style>
 
@@ -1471,9 +1584,10 @@ export default function FitnessTracker() {
 
                   {/* Calendar hint */}
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-2 text-center">
-                    <span className="hidden md:inline">Click</span>
-                    <span className="md:hidden">Tap</span> on a day to record
-                    your weight
+                    <span className="hidden md:inline">
+                      Click to select or hold for 2 seconds for quick entry
+                    </span>
+                    <span className="md:hidden">Tap on a day to select it</span>
                   </div>
 
                   {/* Calendar */}
@@ -1509,20 +1623,30 @@ export default function FitnessTracker() {
                         const isSelected = dateString === selectedDate;
                         const isToday =
                           dateString === new Date().toISOString().split("T")[0];
+                        const isLongPressing = longPressActive === day;
 
                         return (
                           <div
                             key={`day-${day}`}
-                            className={`calendar-day border border-gray-300 rounded-md cursor-pointer transition-all duration-200 ${
-                              isSelected
-                                ? "selected bg-blue-100 dark:bg-blue-900/50 border-blue-400"
-                                : ""
-                            } ${weight ? "has-weight" : ""} ${
-                              isToday
-                                ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800"
-                                : ""
-                            } hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-400 dark:border-gray-600`}
+                            className={`calendar-day border border-gray-300 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden
+                              ${
+                                isSelected
+                                  ? "selected bg-blue-100 dark:bg-blue-900/50 border-blue-400"
+                                  : ""
+                              }
+                              ${weight ? "has-weight" : ""}
+                              ${
+                                isToday
+                                  ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800"
+                                  : ""
+                              }
+                              hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-400 dark:border-gray-600
+                            `}
                             onClick={() => handleDateClick(day)}
+                            onMouseDown={() => handleDayMouseDown(day)}
+                            onMouseUp={handleDayMouseUp}
+                            onMouseLeave={handleDayMouseLeave}
+                            onTouchStart={() => handleDateClick(day)} // For mobile, just use click
                           >
                             <div
                               className={`text-gray-900 dark:text-white ${
@@ -1531,19 +1655,31 @@ export default function FitnessTracker() {
                             >
                               {day}
                             </div>
+
                             {weight && (
                               <div className="weight-value text-blue-700 dark:text-blue-300 font-medium">
                                 {weight}kg
                               </div>
                             )}
-                            {!weight && (
-                              <div className="text-xs text-gray-400 dark:text-gray-500 md:hidden">
-                                Tap
-                              </div>
+
+                            {!weight && !isLongPressing && (
+                              <>
+                                <div className="text-xs text-gray-400 dark:text-gray-500 md:hidden">
+                                  Tap
+                                </div>
+                                <div className="text-xs text-gray-400 dark:text-gray-500 hidden md:block">
+                                  Click/Hold
+                                </div>
+                              </>
                             )}
-                            {!weight && (
-                              <div className="text-xs text-gray-400 dark:text-gray-500 hidden md:block">
-                                Click
+
+                            {/* Long press progress bar */}
+                            {isLongPressing && (
+                              <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-200 dark:bg-gray-700">
+                                <div
+                                  className="h-full bg-blue-600 transition-all duration-50 ease-linear"
+                                  style={{ width: `${longPressProgress}%` }}
+                                ></div>
                               </div>
                             )}
                           </div>
@@ -1618,7 +1754,7 @@ export default function FitnessTracker() {
                         </div>
                       )}
                       {successMessage && (
-                        <div className="text-green-500 text-sm mt-3 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg flex items-center">
+                        <div className="text-green-500 text-sm mt-3 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg flex items-center">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-5 w-5 mr-2 flex-shrink-0"
@@ -1759,7 +1895,7 @@ export default function FitnessTracker() {
                 />
               </svg>
               <p className="text-sm">
-                You're offline. Changes will be saved when you reconnect.
+                You are offline. Changes will be saved when you reconnect.
               </p>
             </div>
           </div>
