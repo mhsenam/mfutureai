@@ -30,6 +30,7 @@ import {
   getDocs,
   orderBy,
   Timestamp,
+  limit,
 } from "firebase/firestore";
 
 // Define WeightEntry interface directly here to avoid import issues
@@ -171,22 +172,26 @@ export default function FitnessTracker() {
   });
 
   // Loading state
-  const [loading, setLoading] = useState(true);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Add this state for success messages
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Redirect if not logged in
   useEffect(() => {
-    if (!currentUser && !loading) {
+    if (!currentUser && !isInitialLoading) {
       router.push("/login");
     }
-  }, [currentUser, loading, router]);
+  }, [currentUser, isInitialLoading, router]);
 
   // Load data from Firestore
   useEffect(() => {
     if (!currentUser) return;
 
-    setLoading(true);
+    setIsInitialLoading(true);
 
     // Set up real-time listeners for workouts
     const workoutsRef = collection(db, "workouts");
@@ -229,7 +234,7 @@ export default function FitnessTracker() {
         });
       });
       setWeightEntries(weightData);
-      setLoading(false);
+      setIsInitialLoading(false);
     });
 
     return () => {
@@ -242,9 +247,11 @@ export default function FitnessTracker() {
   useEffect(() => {
     if (!currentUser) {
       setWeightEntries([]);
+      setIsInitialLoading(false);
       return;
     }
 
+    console.log("Current user changed, fetching weight history");
     fetchWeightHistory();
   }, [currentUser]);
 
@@ -346,7 +353,8 @@ export default function FitnessTracker() {
       return;
     }
 
-    setIsLoading(true);
+    // Set loading state to true
+    setIsSaving(true);
     setError(null);
 
     try {
@@ -356,31 +364,23 @@ export default function FitnessTracker() {
         userId: currentUser.uid,
       });
 
-      // Save weight entry to Firebase
+      // IMPORTANT: Using "weightEntries" collection consistently
       const weightRef = collection(db, "weightEntries");
 
-      // Create the weight entry object
+      // Create the weight entry object with all required fields
       const newWeightEntry = {
         userId: currentUser.uid,
         weight: weightValue,
-        date: Timestamp.fromDate(new Date(selectedDate)),
+        date: selectedDate, // Store as string for easier querying
+        timestamp: Timestamp.fromDate(new Date(selectedDate)), // Also store as Timestamp for ordering
         createdAt: Timestamp.now(),
       };
 
       console.log("Weight entry object:", newWeightEntry);
 
-      // Use addDoc instead of setDoc for more reliable operation
+      // Use addDoc to add the document to the collection
       const docRef = await addDoc(weightRef, newWeightEntry);
       console.log("Document written with ID:", docRef.id);
-
-      // Update local state with the new entry
-      const newEntry: WeightEntry = {
-        id: docRef.id,
-        weight: weightValue,
-        date: selectedDate,
-      };
-
-      setWeightEntries((prev) => [newEntry, ...prev]);
 
       // Clear form
       setWeightInput("");
@@ -388,8 +388,13 @@ export default function FitnessTracker() {
 
       console.log("Weight entry saved successfully!");
 
-      // Manually refresh weight history
-      fetchWeightHistory();
+      // Set success message instead of alert
+      setSuccessMessage("Weight saved successfully!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
     } catch (err) {
       console.error("Error saving weight entry:", err);
       setError(
@@ -398,7 +403,8 @@ export default function FitnessTracker() {
         }`
       );
     } finally {
-      setIsLoading(false);
+      // IMPORTANT: Always reset the loading state, even if there's an error
+      setIsSaving(false);
     }
   };
 
@@ -538,49 +544,60 @@ export default function FitnessTracker() {
   const weightTrend = getWeightTrend();
 
   // Add this function outside of any other function but inside the component
-  const fetchWeightHistory = async () => {
-    if (!currentUser) return;
+  const fetchWeightHistory = async (forceRefresh = false) => {
+    if (!currentUser) {
+      setWeightEntries([]);
+      return;
+    }
 
-    setIsLoading(true);
+    // Use the appropriate loading state
+    if (forceRefresh) {
+      setIsFetching(true);
+    } else if (isInitialLoading) {
+      // Keep initial loading state
+    } else {
+      setIsFetching(true);
+    }
+
     setError(null);
 
     try {
       console.log("Fetching weight history for user:", currentUser.uid);
+
+      // IMPORTANT: Make sure we're using the correct collection name
       const weightRef = collection(db, "weightEntries");
+
+      // Create a query against the collection
       const q = query(
         weightRef,
         where("userId", "==", currentUser.uid),
-        orderBy("date", "desc")
+        orderBy("timestamp", "desc") // Use timestamp field for ordering
       );
 
+      console.log("Executing Firestore query...");
       const querySnapshot = await getDocs(q);
+      console.log("Query snapshot size:", querySnapshot.size);
+
       const weightData: WeightEntry[] = [];
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        try {
-          // Handle potential date format issues
-          let formattedDate = "";
-          if (data.date instanceof Timestamp) {
-            formattedDate = data.date.toDate().toISOString().split("T")[0];
-          } else if (data.date && typeof data.date.toDate === "function") {
-            formattedDate = data.date.toDate().toISOString().split("T")[0];
-          } else if (data.date) {
-            // If it's a string or another format, try to convert it
-            formattedDate = new Date(data.date).toISOString().split("T")[0];
-          }
+        console.log("Document data:", doc.id, data);
 
+        try {
           weightData.push({
             id: doc.id,
             weight: parseFloat(data.weight) || 0,
-            date: formattedDate || "Unknown date",
+            date: data.date || "Unknown date",
           });
         } catch (err) {
           console.error("Error parsing weight entry:", err, data);
         }
       });
 
-      console.log("Fetched weight entries:", weightData.length);
+      console.log("Fetched weight entries:", weightData.length, weightData);
+
+      // Update state with the fetched data
       setWeightEntries(weightData);
     } catch (err) {
       console.error("Error fetching weight history:", err);
@@ -590,12 +607,32 @@ export default function FitnessTracker() {
         }`
       );
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
+      setIsFetching(false);
     }
   };
 
+  // Add a function to verify Firebase connection
+  const verifyFirebaseConnection = async () => {
+    try {
+      // Try to get a document from Firestore to verify connection
+      const testRef = collection(db, "test");
+      await getDocs(query(testRef, limit(1)));
+      console.log("Firebase connection verified successfully");
+      return true;
+    } catch (err) {
+      console.error("Firebase connection error:", err);
+      return false;
+    }
+  };
+
+  // Call this function when the component mounts
+  useEffect(() => {
+    verifyFirebaseConnection();
+  }, []);
+
   // If still loading or not logged in, show loading state
-  if (!currentUser || loading) {
+  if (!currentUser || isInitialLoading) {
     return (
       <div className="flex flex-col min-h-screen relative">
         <div className="fixed inset-0 pointer-events-none z-0">
@@ -1090,15 +1127,19 @@ export default function FitnessTracker() {
                       placeholder="Enter weight in kg"
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                       required
-                      disabled={isLoading}
+                      disabled={isSaving}
                     />
                   </div>
                   <button
                     type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
-                    disabled={isLoading}
+                    className={`px-4 py-2 rounded-lg transition-colors flex items-center ${
+                      isSaving
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
+                    disabled={isSaving}
                   >
-                    {isLoading ? (
+                    {isSaving ? (
                       <>
                         <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                         Saving...
@@ -1113,16 +1154,47 @@ export default function FitnessTracker() {
                     {error}
                   </p>
                 )}
+                {successMessage && (
+                  <p className="text-green-500 text-sm mt-2 bg-green-50 p-2 rounded-md">
+                    {successMessage}
+                  </p>
+                )}
               </div>
 
               {/* Weight History */}
               <WeightHistory
                 weightHistory={weightEntries}
-                isLoading={isLoading}
+                isLoading={isInitialLoading || isFetching}
                 error={error}
               />
             </div>
           </>
+        )}
+
+        {/* Debug Information */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="mt-4 p-3 bg-gray-100 rounded-md text-xs">
+            <h4 className="font-bold mb-1">Debug Info:</h4>
+            <p>isSaving: {isSaving ? "true" : "false"}</p>
+            <p>isLoading: {isInitialLoading ? "true" : "false"}</p>
+            <p>isFetching: {isFetching ? "true" : "false"}</p>
+            <p>User ID: {currentUser?.uid || "Not logged in"}</p>
+            <p>Weight Entries: {weightEntries.length}</p>
+            <button
+              onClick={() => {
+                console.log("Current state:", {
+                  isSaving,
+                  isInitialLoading,
+                  isFetching,
+                  currentUser,
+                  weightEntries,
+                });
+              }}
+              className="mt-1 px-2 py-1 bg-blue-500 text-white rounded text-xs"
+            >
+              Log State to Console
+            </button>
+          </div>
         )}
       </main>
 

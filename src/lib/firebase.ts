@@ -1,8 +1,8 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
-// Your web app's Firebase configuration
+// Your Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCA06jo0H8Wu0xSAALuACyE_KPi3Fymddo",
   authDomain: "mfuture-fitness-tracker.firebaseapp.com",
@@ -14,29 +14,23 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Log the configuration (without sensitive data)
-console.log("Firebase initialized with project:", firebaseConfig.projectId);
-
-// Enable offline persistence
-enableIndexedDbPersistence(db)
-  .then(() => {
-    console.log("Firestore persistence enabled");
-  })
-  .catch((err) => {
-    console.error("Error enabling persistence:", err);
+// Enable offline persistence when possible
+if (typeof window !== "undefined") {
+  enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === "failed-precondition") {
-      console.warn(
-        "Multiple tabs open, persistence can only be enabled in one tab at a time"
+      console.log(
+        "Multiple tabs open, persistence can only be enabled in one tab at a time."
       );
     } else if (err.code === "unimplemented") {
-      console.warn(
+      console.log(
         "The current browser does not support all of the features required to enable persistence"
       );
     }
   });
+}
 
-export { auth, db };
+export { app, auth, db };
