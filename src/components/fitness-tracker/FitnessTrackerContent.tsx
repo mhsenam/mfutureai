@@ -1662,17 +1662,6 @@ export default function FitnessTracker() {
                               </div>
                             )}
 
-                            {!weight && !isLongPressing && (
-                              <>
-                                <div className="text-xs text-gray-400 dark:text-gray-500 md:hidden">
-                                  Tap
-                                </div>
-                                <div className="text-xs text-gray-400 dark:text-gray-500 hidden md:block">
-                                  Click/Hold
-                                </div>
-                              </>
-                            )}
-
                             {/* Long press progress bar */}
                             {isLongPressing && (
                               <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-200 dark:bg-gray-700">
