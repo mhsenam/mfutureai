@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default rule - deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Weight entries collection
+    match /weightEntries/{entryId} {
+      // Allow read/write if the user is authenticated and the document belongs to them
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Allow create if the user is authenticated and setting their own userId
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Workouts collection
+    match /workouts/{workoutId} {
+      // Allow read/write if the user is authenticated and the document belongs to them
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Allow create if the user is authenticated and setting their own userId
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Connection tests collection - for debugging
+    match /connectionTests/{testId} {
+      // Allow authenticated users to read/write
+      allow read, write: if request.auth != null;
+      // Allow anonymous connection tests for debugging
+      allow create: if true;
+    }
+    
+    // Test collection - for connection verification
+    match /test/{document=**} {
+      // Allow read for connection verification
+      allow read: if true;
+    }
+  }
+} 

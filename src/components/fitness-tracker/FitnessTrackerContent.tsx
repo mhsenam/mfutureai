@@ -34,7 +34,6 @@ import {
   enableNetwork,
   disableNetwork,
 } from "firebase/firestore";
-import { FirebaseError } from "firebase/app";
 
 // Define WeightEntry interface directly here to avoid import issues
 interface WeightEntry {
@@ -291,7 +290,7 @@ export default function FitnessTracker() {
     });
 
     // Set up real-time listeners for weight entries
-    const weightsRef = collection(db, "weights");
+    const weightsRef = collection(db, "weightEntries");
     const weightsQuery = query(
       weightsRef,
       where("userId", "==", currentUser.uid)
@@ -1034,9 +1033,11 @@ export default function FitnessTracker() {
       const testRef = collection(db, "test");
       await getDocs(query(testRef, limit(1)));
       console.log("Firebase connection verified successfully");
+      setFirebaseReady(true);
       return true;
     } catch (err) {
       console.error("Firebase connection error:", err);
+      setFirebaseReady(false);
       return false;
     }
   };
@@ -1256,6 +1257,16 @@ export default function FitnessTracker() {
         <div className="fixed inset-0 pointer-events-none z-0">
           <div className="dotted-pattern absolute inset-0" />
         </div>
+
+        {/* Firebase initialization indicator */}
+        {!firebaseReady && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 dark:bg-yellow-900/70 border border-yellow-500 text-yellow-700 dark:text-yellow-300 px-4 py-2 rounded-lg shadow-lg z-50">
+            <div className="flex items-center">
+              <div className="inline-block h-4 w-4 border-2 border-yellow-600 dark:border-yellow-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+              <p>Initializing Firebase connection...</p>
+            </div>
+          </div>
+        )}
 
         <main className="flex-grow flex flex-col items-center px-4 py-6 sm:p-8 relative z-10">
           <style jsx>{`
@@ -1757,24 +1768,26 @@ export default function FitnessTracker() {
                             placeholder="Enter weight in kg"
                             className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                             required
-                            disabled={isSaving}
+                            disabled={isSaving || !firebaseReady}
                           />
                         </div>
                         <div className="flex gap-2">
                           <button
                             type="submit"
                             className={`px-6 py-3 rounded-lg transition-colors flex items-center justify-center ${
-                              isSaving
+                              isSaving || !firebaseReady
                                 ? "bg-gray-400 cursor-not-allowed"
                                 : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow"
                             }`}
-                            disabled={isSaving}
+                            disabled={isSaving || !firebaseReady}
                           >
                             {isSaving ? (
                               <>
                                 <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                                 Saving...
                               </>
+                            ) : !firebaseReady ? (
+                              "Firebase Initializing..."
                             ) : (
                               "Save"
                             )}
@@ -1933,28 +1946,42 @@ export default function FitnessTracker() {
           </div>
         </footer>
 
-        {/* Network Status Indicator */}
-        {!checkNetworkStatus() && (
-          <div className="fixed bottom-4 right-4 bg-yellow-100 dark:bg-yellow-900/70 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-4 rounded-lg shadow-lg max-w-xs">
-            <div className="flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2 flex-shrink-0"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
+        {/* Network Status Indicator - now using isOnline state */}
+        <div
+          className={`fixed bottom-4 right-4 px-3 py-2 rounded-lg shadow-lg text-sm ${
+            isOnline
+              ? "bg-green-100 dark:bg-green-900/70 border-l-4 border-green-500 text-green-700 dark:text-green-300"
+              : "bg-yellow-100 dark:bg-yellow-900/70 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300"
+          }`}
+        >
+          <div className="flex items-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-2 flex-shrink-0"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              {isOnline ? (
+                <path
+                  fillRule="evenodd"
+                  d="M5.05 3.636a1 1 0 010 1.414 7 7 0 000 9.9 1 1 0 11-1.414 1.414 9 9 0 010-12.728 1 1 0 011.414 0zm9.9 0a1 1 0 011.414 0 9 9 0 010 12.728 1 1 0 01-1.414-1.414 7 7 0 000-9.9 1 1 0 010-1.414zM7.879 6.464a1 1 0 010 1.414 3 3 0 000 4.243 1 1 0 11-1.415 1.414 5 5 0 010-7.07 1 1 0 011.415 0zm4.242 0a1 1 0 011.415 0 5 5 0 010 7.072 1 1 0 01-1.415-1.414 3 3 0 000-4.244 1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              ) : (
                 <path
                   fillRule="evenodd"
                   d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
                   clipRule="evenodd"
                 />
-              </svg>
-              <p className="text-sm">
-                You are offline. Changes will be saved when you reconnect.
-              </p>
-            </div>
+              )}
+            </svg>
+            <p>
+              {isOnline
+                ? "You are online. Changes will be saved immediately."
+                : "You are offline. Changes will be saved when you reconnect."}
+            </p>
           </div>
-        )}
+        </div>
 
         {/* Modal with blurred background and click-outside dismissal */}
         {showModal && (
