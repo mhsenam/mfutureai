@@ -97,25 +97,25 @@ function WeightHistory({
       <h3 className="text-lg font-semibold mb-3 text-gray-900">
         Weight History
       </h3>
-      <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3 md:w-1/4"
+                className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3"
               >
                 Date
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3"
               >
                 Weight (kg)
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell"
+                className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3"
               >
                 Change
               </th>
@@ -139,7 +139,7 @@ function WeightHistory({
                   key={entry.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                  <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                     {new Date(entry.date).toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",
@@ -147,13 +147,13 @@ function WeightHistory({
                       year: "numeric",
                     })}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-semibold">
+                  <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white font-semibold">
                     {entry.weight} kg
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right hidden md:table-cell">
+                  <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right">
                     {weightChange ? (
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center px-1.5 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           isGain
                             ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                             : isLoss
@@ -1284,6 +1284,14 @@ export default function FitnessTracker() {
               align-items: center;
               cursor: pointer;
               transition: all 0.2s;
+              min-height: 2.5rem; /* Minimum height for better touch targets */
+              touch-action: manipulation; /* Improve touch behavior */
+            }
+
+            @media (max-width: 640px) {
+              .calendar-day {
+                min-height: 2.75rem; /* Larger on small screens */
+              }
             }
 
             .calendar-day:hover {
@@ -1300,9 +1308,17 @@ export default function FitnessTracker() {
             }
 
             .weight-value {
-              font-size: 0.7rem;
+              font-size: 0.6rem;
               color: #2563eb;
               font-weight: 500;
+              line-height: 1;
+              margin-top: 2px;
+            }
+
+            @media (min-width: 640px) {
+              .weight-value {
+                font-size: 0.7rem;
+              }
             }
 
             /* Improve placeholder color for better readability */
@@ -1620,7 +1636,7 @@ export default function FitnessTracker() {
                   </div>
 
                   {/* Calendar Navigation */}
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
                     <div className="flex items-center">
                       <button
                         onClick={prevMonth}
@@ -1651,7 +1667,7 @@ export default function FitnessTracker() {
                   </div>
 
                   {/* Calendar hint */}
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-2 text-center">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">
                     <span className="hidden md:inline">
                       Click to select or hold for 2 seconds for quick entry
                     </span>
@@ -1659,23 +1675,27 @@ export default function FitnessTracker() {
                   </div>
 
                   {/* Calendar */}
-                  <div className="mb-6">
+                  <div className="mb-6 px-1 sm:px-2">
                     {/* Day names */}
-                    <div className="grid grid-cols-7 gap-1 mb-1">
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5 md:gap-2 mb-2">
                       {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
                         (day) => (
                           <div
                             key={day}
-                            className="text-center text-sm font-medium text-gray-700 py-1"
+                            className="text-center text-xs sm:text-sm font-medium text-gray-700 py-1"
                           >
-                            {day}
+                            {/* Show abbreviated day names on small screens */}
+                            <span className="hidden sm:inline">{day}</span>
+                            <span className="sm:hidden">
+                              {day.substring(0, 1)}
+                            </span>
                           </div>
                         )
                       )}
                     </div>
 
                     {/* Calendar days */}
-                    <div className="grid grid-cols-7 gap-1">
+                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5 md:gap-2">
                       {generateCalendarDays().map((day, index) => {
                         if (day === null) {
                           return (
@@ -1696,7 +1716,7 @@ export default function FitnessTracker() {
                         return (
                           <div
                             key={`day-${day}`}
-                            className={`calendar-day border border-gray-300 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden
+                            className={`calendar-day border border-gray-300 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden p-1 sm:p-1.5
                               ${
                                 isSelected
                                   ? "selected bg-blue-100 dark:bg-blue-900/50 border-blue-400"
@@ -1717,7 +1737,7 @@ export default function FitnessTracker() {
                             onTouchStart={() => handleDateClick(day)} // For mobile, just use click
                           >
                             <div
-                              className={`text-gray-900 dark:text-white ${
+                              className={`text-gray-900 dark:text-white text-sm sm:text-base ${
                                 isToday ? "font-bold" : ""
                               }`}
                             >
@@ -1725,7 +1745,7 @@ export default function FitnessTracker() {
                             </div>
 
                             {weight && (
-                              <div className="weight-value text-blue-700 dark:text-blue-300 font-medium">
+                              <div className="weight-value text-blue-700 dark:text-blue-300 font-medium text-[0.6rem] sm:text-[0.7rem]">
                                 {weight}kg
                               </div>
                             )}
@@ -1745,15 +1765,17 @@ export default function FitnessTracker() {
                     </div>
                   </div>
 
-                  {/* Weight Entry Form - make it wider */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 sm:p-8 mb-6 w-full">
+                  {/* Weight Entry Form - make it wider and more mobile-friendly */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6 md:p-8 mb-6 w-full">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
                       Record Weight for{" "}
-                      {new Date(selectedDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {new Date(selectedDate).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
                     </h3>
                     <form onSubmit={handleWeightSubmit} className="space-y-4">
                       <div className="flex flex-col sm:flex-row gap-3">
@@ -1766,7 +1788,7 @@ export default function FitnessTracker() {
                             value={weightInput}
                             onChange={(e) => setWeightInput(e.target.value)}
                             placeholder="Enter weight in kg"
-                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                            className="w-full px-4 py-3 sm:py-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-base"
                             required
                             disabled={isSaving || !firebaseReady}
                           />
@@ -1774,7 +1796,7 @@ export default function FitnessTracker() {
                         <div className="flex gap-2">
                           <button
                             type="submit"
-                            className={`px-6 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                            className={`px-4 sm:px-6 py-3 sm:py-4 rounded-lg transition-colors flex items-center justify-center flex-1 sm:flex-auto ${
                               isSaving || !firebaseReady
                                 ? "bg-gray-400 cursor-not-allowed"
                                 : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow"
@@ -1803,7 +1825,7 @@ export default function FitnessTracker() {
                                   "Save operation was cancelled. Please try again."
                                 );
                               }}
-                              className="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors"
+                              className="px-4 py-3 sm:py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors"
                             >
                               Cancel
                             </button>
