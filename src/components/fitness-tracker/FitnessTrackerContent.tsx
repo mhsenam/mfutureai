@@ -1268,7 +1268,7 @@ export default function FitnessTracker() {
           </div>
         )}
 
-        <main className="flex-grow flex flex-col items-center px-4 py-6 sm:p-8 relative z-10">
+        <main className="flex-grow flex flex-col items-center py-6 sm:p-8 relative z-10">
           <style jsx>{`
             .dotted-pattern {
               background-image: radial-gradient(#212529 1px, transparent 1px);
@@ -1290,7 +1290,7 @@ export default function FitnessTracker() {
 
             @media (max-width: 640px) {
               .calendar-day {
-                min-height: 2.75rem; /* Larger on small screens */
+                padding: 0.5rem; /* More padding on mobile */
               }
             }
 
@@ -1308,7 +1308,7 @@ export default function FitnessTracker() {
             }
 
             .weight-value {
-              font-size: 0.6rem;
+              font-size: 0.5rem;
               color: #2563eb;
               font-weight: 500;
               line-height: 1;
@@ -1716,7 +1716,7 @@ export default function FitnessTracker() {
                         return (
                           <div
                             key={`day-${day}`}
-                            className={`calendar-day border border-gray-300 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden p-1 sm:p-1.5
+                            className={`calendar-day border border-gray-300 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden p-0.5 sm:p-1.5
                               ${
                                 isSelected
                                   ? "selected bg-blue-100 dark:bg-blue-900/50 border-blue-400"
