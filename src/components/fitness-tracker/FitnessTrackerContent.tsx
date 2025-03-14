@@ -575,87 +575,60 @@ export default function FitnessTracker() {
     setIsSaving(true);
     setError(null);
 
-    // Create the weight entry object with all required fields
-    const newWeightEntry = {
-      userId: currentUser.uid,
-      weight: weightValue,
-      date: selectedDate, // Store as string for easier querying
-      timestamp: Timestamp.fromDate(new Date(selectedDate)), // Also store as Timestamp for ordering
-      createdAt: Timestamp.now(),
-    };
-
-    let retryCount = 0;
-    const maxRetries = 2;
-
-    const attemptSave = async () => {
-      try {
-        console.log(
-          `Saving weight entry (attempt ${retryCount + 1}):`,
-          newWeightEntry
-        );
-
-        // IMPORTANT: Using "weightEntries" collection consistently
-        const weightRef = collection(db, "weightEntries");
-
-        // Use addDoc to add the document to the collection
-        const docRef = await addDoc(weightRef, newWeightEntry);
-        console.log("Document written with ID:", docRef.id);
-
-        // Clear form
-        setWeightInput("");
-        setSelectedDate(new Date().toISOString().split("T")[0]);
-
-        // Set success message
-        setSuccessMessage("Weight saved successfully!");
-
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          setSuccessMessage(null);
-        }, 3000);
-
-        return true;
-      } catch (err) {
-        console.error(
-          `Error saving weight entry (attempt ${retryCount + 1}):`,
-          err
-        );
-
-        // Check if it's a network error
-        if (
-          err instanceof FirebaseError &&
-          (err.code === "failed-precondition" ||
-            err.code === "unavailable" ||
-            err.code.includes("network"))
-        ) {
-          console.log(
-            "Network error detected, attempting to fix connection..."
-          );
-
-          // Try to fix the connection
-          const connectionFixed = await handleFirebaseConnectionIssue();
-
-          // If we fixed the connection and haven't exceeded max retries, try again
-          if (connectionFixed && retryCount < maxRetries) {
-            retryCount++;
-            console.log(`Retrying save (attempt ${retryCount + 1})...`);
-            return await attemptSave();
-          }
-        }
-
-        // If we get here, we've either exceeded retries or it's not a network error
-        setError(
-          `Failed to save your weight entry: ${
-            err instanceof Error ? err.message : "Unknown error"
-          }`
-        );
-        return false;
+    // Set a timeout to automatically reset the saving state if it takes too long
+    const saveTimeout = setTimeout(() => {
+      if (isSaving) {
+        setIsSaving(false);
+        setError("Save operation timed out. Please try again.");
       }
-    };
+    }, 10000); // 10 seconds timeout
 
     try {
-      await attemptSave();
+      console.log("Saving weight entry:", {
+        weight: weightValue,
+        date: selectedDate,
+        userId: currentUser.uid,
+      });
+
+      // IMPORTANT: Using "weightEntries" collection consistently
+      const weightRef = collection(db, "weightEntries");
+
+      // Create the weight entry object with all required fields
+      const newWeightEntry = {
+        userId: currentUser.uid,
+        weight: weightValue,
+        date: selectedDate, // Store as string for easier querying
+        timestamp: Timestamp.fromDate(new Date(selectedDate)), // Also store as Timestamp for ordering
+        createdAt: Timestamp.now(),
+      };
+
+      // Use addDoc to add the document to the collection
+      const docRef = await addDoc(weightRef, newWeightEntry);
+      console.log("Document written with ID:", docRef.id);
+
+      // Clear form
+      setWeightInput("");
+
+      // Set success message
+      setSuccessMessage("Weight saved successfully!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+
+      // Manually refresh the weight history to show the new entry
+      fetchWeightHistory(true);
+    } catch (err) {
+      console.error("Error saving weight entry:", err);
+      setError(
+        `Failed to save your weight entry: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
     } finally {
       // IMPORTANT: Always reset the loading state, even if there's an error
+      clearTimeout(saveTimeout);
       setIsSaving(false);
     }
   };
@@ -841,7 +814,7 @@ export default function FitnessTracker() {
     setLongPressProgress(0);
   };
 
-  // Add a function to handle modal submission
+  // Update the handleModalSubmit function with better error handling and state management
   const handleModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -864,6 +837,14 @@ export default function FitnessTracker() {
 
     setIsSaving(true);
     setError(null);
+
+    // Set a timeout to automatically reset the saving state if it takes too long
+    const saveTimeout = setTimeout(() => {
+      if (isSaving) {
+        setIsSaving(false);
+        setError("Save operation timed out. Please try again.");
+      }
+    }, 10000); // 10 seconds timeout
 
     try {
       console.log("Saving weight entry from modal:", {
@@ -891,16 +872,21 @@ export default function FitnessTracker() {
       // Set success message
       setSuccessMessage("Weight saved successfully!");
 
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-
-      // Close the modal
-      setShowModal(false);
-
       // Update the selected date's weight input
       setWeightInput(weightValue.toString());
+
+      // Close the modal after a short delay to show success message
+      setTimeout(() => {
+        setShowModal(false);
+
+        // Clear success message after modal is closed
+        setTimeout(() => {
+          setSuccessMessage(null);
+        }, 2000);
+      }, 1000);
+
+      // Manually refresh the weight history to show the new entry
+      fetchWeightHistory(true);
     } catch (err) {
       console.error("Error saving weight entry from modal:", err);
       setError(
@@ -909,6 +895,8 @@ export default function FitnessTracker() {
         }`
       );
     } finally {
+      // IMPORTANT: Always reset the loading state, even if there's an error
+      clearTimeout(saveTimeout);
       setIsSaving(false);
     }
   };
@@ -1100,6 +1088,27 @@ export default function FitnessTracker() {
       }
     };
   }, []);
+
+  // Add this function to help diagnose issues
+  const debugFirebaseConnection = async () => {
+    try {
+      console.log("Testing Firebase connection...");
+
+      // Try to write a test document
+      const testRef = collection(db, "test");
+      const testDoc = await addDoc(testRef, {
+        test: true,
+        timestamp: Timestamp.now(),
+        userId: currentUser?.uid || "anonymous",
+      });
+
+      console.log("Test document written successfully:", testDoc.id);
+      return true;
+    } catch (err) {
+      console.error("Firebase test failed:", err);
+      return false;
+    }
+  };
 
   // If still loading or not logged in, show loading state
   if (!currentUser || isInitialLoading) {
@@ -1703,47 +1712,50 @@ export default function FitnessTracker() {
                             disabled={isSaving}
                           />
                         </div>
-                        <button
-                          type="submit"
-                          className={`px-6 py-3 rounded-lg transition-colors flex items-center justify-center ${
-                            isSaving
-                              ? "bg-gray-400 cursor-not-allowed"
-                              : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow"
-                          }`}
-                          disabled={isSaving}
-                        >
-                          {isSaving ? (
-                            <>
-                              <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                              Saving...
-                            </>
-                          ) : (
-                            "Save"
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            className={`px-6 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                              isSaving
+                                ? "bg-gray-400 cursor-not-allowed"
+                                : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow"
+                            }`}
+                            disabled={isSaving}
+                          >
+                            {isSaving ? (
+                              <>
+                                <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                Saving...
+                              </>
+                            ) : (
+                              "Save"
+                            )}
+                          </button>
+
+                          {/* Improved Cancel button */}
+                          {isSaving && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsSaving(false);
+                                setError(
+                                  "Save operation was cancelled. Please try again."
+                                );
+                              }}
+                              className="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors"
+                            >
+                              Cancel
+                            </button>
                           )}
-                        </button>
+                        </div>
                       </div>
                       {error && (
-                        <div className="text-red-500 text-sm mt-3 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
-                          <p>{error}</p>
-                          {!checkNetworkStatus() && (
-                            <p className="mt-1">
-                              You appear to be offline. Please check your
-                              internet connection.
-                            </p>
-                          )}
-                          <button
-                            onClick={() => {
-                              resetStates();
-                              handleFirebaseConnectionIssue();
-                            }}
-                            className="mt-2 px-3 py-1 bg-blue-500 text-white rounded-md text-xs"
-                          >
-                            Reset Connection & Try Again
-                          </button>
+                        <div className="text-red-500 text-sm bg-red-50 dark:bg-red-900/20 p-4 rounded-lg mt-4">
+                          {error}
                         </div>
                       )}
                       {successMessage && (
-                        <div className="text-green-500 text-sm mt-3 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg flex items-center">
+                        <div className="text-green-500 text-sm bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mt-4 flex items-center">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-5 w-5 mr-2 flex-shrink-0"
@@ -1851,6 +1863,12 @@ export default function FitnessTracker() {
                 >
                   Reset Connection
                 </button>
+                <button
+                  onClick={debugFirebaseConnection}
+                  className="px-2 py-1 bg-purple-500 text-white rounded text-xs"
+                >
+                  Test Firebase
+                </button>
               </div>
             </div>
           )}
@@ -1957,14 +1975,16 @@ export default function FitnessTracker() {
                 </div>
 
                 <div className="flex justify-end space-x-4 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
-                    disabled={isSaving}
-                  >
-                    Cancel
-                  </button>
+                  {!isSaving && (
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(false)}
+                      className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+                    >
+                      Close
+                    </button>
+                  )}
+
                   <button
                     type="submit"
                     className={`px-5 py-2.5 rounded-lg transition-colors font-medium ${
@@ -1983,6 +2003,22 @@ export default function FitnessTracker() {
                       "Save"
                     )}
                   </button>
+
+                  {/* Improved Cancel button */}
+                  {isSaving && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSaving(false);
+                        setError(
+                          "Save operation was cancelled. Please try again."
+                        );
+                      }}
+                      className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
 
                 {error && (
