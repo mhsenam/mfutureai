@@ -248,6 +248,12 @@ export default function FitnessTracker() {
   const longPressDuration = 2000; // 2 seconds in milliseconds
   const longPressInterval = 50; // Update progress every 50ms
 
+  // Add this state to your component
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Add this state
+  const [firebaseReady, setFirebaseReady] = useState(false);
+
   // Redirect if not logged in
   useEffect(() => {
     if (!currentUser && !isInitialLoading) {
@@ -584,6 +590,12 @@ export default function FitnessTracker() {
     }, 10000); // 10 seconds timeout
 
     try {
+      // First, test the connection
+      const connectionOk = await debugFirebaseConnection();
+      if (!connectionOk) {
+        throw new Error("Firebase connection test failed");
+      }
+
       console.log("Saving weight entry:", {
         weight: weightValue,
         date: selectedDate,
@@ -597,8 +609,8 @@ export default function FitnessTracker() {
       const newWeightEntry = {
         userId: currentUser.uid,
         weight: weightValue,
-        date: selectedDate, // Store as string for easier querying
-        timestamp: Timestamp.fromDate(new Date(selectedDate)), // Also store as Timestamp for ordering
+        date: selectedDate,
+        timestamp: Timestamp.fromDate(new Date(selectedDate)),
         createdAt: Timestamp.now(),
       };
 
@@ -621,11 +633,28 @@ export default function FitnessTracker() {
       fetchWeightHistory(true);
     } catch (err) {
       console.error("Error saving weight entry:", err);
-      setError(
-        `Failed to save your weight entry: ${
-          err instanceof Error ? err.message : "Unknown error"
-        }`
-      );
+
+      // More detailed error message based on the type of error
+      let errorMessage = "Failed to save your weight entry: ";
+
+      if (err instanceof Error) {
+        errorMessage += err.message;
+
+        // Check for specific Firebase error codes
+        if (err.message.includes("permission-denied")) {
+          errorMessage +=
+            ". You may not have permission to write to this collection.";
+        } else if (err.message.includes("unavailable")) {
+          errorMessage +=
+            ". Firebase service is currently unavailable. Please check your internet connection.";
+        } else if (err.message.includes("not-found")) {
+          errorMessage += ". The specified database path does not exist.";
+        }
+      } else {
+        errorMessage += "Unknown error";
+      }
+
+      setError(errorMessage);
     } finally {
       // IMPORTANT: Always reset the loading state, even if there's an error
       clearTimeout(saveTimeout);
@@ -1022,31 +1051,10 @@ export default function FitnessTracker() {
     return navigator.onLine;
   };
 
-  // Add this useEffect to monitor network status
+  // Add these effects to monitor network status
   useEffect(() => {
-    const handleOnline = () => {
-      console.log("Device is online");
-      // Re-enable Firestore network
-      enableNetwork(db).catch((err) =>
-        console.error("Failed to enable network:", err)
-      );
-    };
-
-    const handleOffline = () => {
-      console.log("Device is offline");
-      // Disable Firestore network to prevent unnecessary retries
-      disableNetwork(db).catch((err) =>
-        console.error("Failed to disable network:", err)
-      );
-
-      // Show an error if we're in the middle of saving
-      if (isSaving) {
-        setError(
-          "You are offline. Please check your internet connection and try again."
-        );
-        setIsSaving(false);
-      }
-    };
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -1055,7 +1063,7 @@ export default function FitnessTracker() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [isSaving]);
+  }, []);
 
   // Add a reset function to clear any stuck states
   const resetStates = () => {
@@ -1094,21 +1102,61 @@ export default function FitnessTracker() {
     try {
       console.log("Testing Firebase connection...");
 
-      // Try to write a test document
-      const testRef = collection(db, "test");
-      const testDoc = await addDoc(testRef, {
-        test: true,
-        timestamp: Timestamp.now(),
-        userId: currentUser?.uid || "anonymous",
-      });
+      // Check if Firebase is initialized
+      if (!db) {
+        throw new Error("Firebase database is not initialized");
+      }
 
-      console.log("Test document written successfully:", testDoc.id);
+      // Try to write a test document
+      const testCollection = collection(db, "connectionTests");
+      const testDoc = {
+        timestamp: Timestamp.now(),
+        message: "Connection test",
+        userId: currentUser?.uid || "anonymous",
+      };
+
+      console.log("Attempting to write test document...");
+      const docRef = await addDoc(testCollection, testDoc);
+      console.log("Test document written successfully with ID:", docRef.id);
+
+      // Try to read the document back
+      console.log("Attempting to read test document...");
+      const testQuery = query(
+        testCollection,
+        where("userId", "==", currentUser?.uid || "anonymous"),
+        orderBy("timestamp", "desc")
+      );
+
+      const querySnapshot = await getDocs(testQuery);
+      console.log("Read successful, documents found:", querySnapshot.size);
+
+      setSuccessMessage("Firebase connection is working correctly!");
+      setTimeout(() => setSuccessMessage(null), 5000);
+
       return true;
     } catch (err) {
-      console.error("Firebase test failed:", err);
+      console.error("Firebase connection test failed:", err);
+      setError(
+        `Firebase connection test failed: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
       return false;
     }
   };
+
+  // Add this effect
+  useEffect(() => {
+    // Check if Firebase is initialized
+    if (db) {
+      setFirebaseReady(true);
+    } else {
+      console.error("Firebase db is not initialized");
+      setError(
+        "Firebase database is not initialized. Please refresh the page."
+      );
+    }
+  }, []);
 
   // If still loading or not logged in, show loading state
   if (!currentUser || isInitialLoading) {

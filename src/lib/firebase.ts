@@ -22,32 +22,23 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Enable offline persistence when possible
-if (typeof window !== "undefined") {
-  // Set a flag to ensure we only try to enable persistence once
-  const persistenceEnabled = window.localStorage.getItem(
-    "firestorePersistenceEnabled"
-  );
-
-  if (!persistenceEnabled) {
-    enableIndexedDbPersistence(db)
-      .then(() => {
-        console.log("Firestore persistence enabled successfully");
-        window.localStorage.setItem("firestorePersistenceEnabled", "true");
-      })
-      .catch((err) => {
-        console.error("Error enabling Firestore persistence:", err);
-        if (err.code === "failed-precondition") {
-          console.log(
-            "Multiple tabs open, persistence can only be enabled in one tab at a time."
-          );
-        } else if (err.code === "unimplemented") {
-          console.log(
-            "The current browser does not support all of the features required to enable persistence"
-          );
-        }
-      });
-  }
+// Enable offline persistence (wrap in try/catch as it can fail in some browsers)
+try {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === "failed-precondition") {
+      console.warn(
+        "Multiple tabs open, persistence can only be enabled in one tab at a time."
+      );
+    } else if (err.code === "unimplemented") {
+      console.warn(
+        "The current browser does not support all of the features required to enable persistence"
+      );
+    } else {
+      console.error("Error enabling persistence:", err);
+    }
+  });
+} catch (err) {
+  console.error("Error setting up persistence:", err);
 }
 
 // Connect to emulator if in development and using emulator
@@ -63,5 +54,20 @@ if (
   connectFirestoreEmulator(db, host, port);
   console.log(`Connected to Firestore emulator at ${host}:${port}`);
 }
+
+// Add this debug code to check if Firebase is initialized correctly
+console.log("Firebase initialization status:", {
+  apiKey: Boolean(firebaseConfig.apiKey),
+  authDomain: Boolean(firebaseConfig.authDomain),
+  projectId: Boolean(firebaseConfig.projectId),
+  storageBucket: Boolean(firebaseConfig.storageBucket),
+  messagingSenderId: Boolean(firebaseConfig.messagingSenderId),
+  appId: Boolean(firebaseConfig.appId),
+});
+
+// Log when Firebase is initialized
+console.log("Firebase app initialized:", Boolean(app));
+console.log("Firebase auth initialized:", Boolean(auth));
+console.log("Firebase db initialized:", Boolean(db));
 
 export { app, auth, db };
