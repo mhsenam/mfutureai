@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+declare const process: {
+  env: {
+    NODE_ENV: string;
+  };
+};
+
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   FaPlus,
   FaTrash,
@@ -13,8 +21,6 @@ import {
   FaCalendarDay,
   FaSignOutAlt,
 } from "react-icons/fa";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 import {
@@ -193,7 +199,7 @@ interface WorkoutEntry {
   notes?: string;
 }
 
-export default function FitnessTracker() {
+export default function FitnessTrackerContent() {
   const { currentUser, logout } = useAuth();
   const router = useRouter();
 
@@ -1125,11 +1131,16 @@ export default function FitnessTracker() {
       const testQuery = query(
         testCollection,
         where("userId", "==", currentUser?.uid || "anonymous"),
-        orderBy("timestamp", "desc")
+        orderBy("timestamp", "desc"),
+        limit(1)
       );
 
       const querySnapshot = await getDocs(testQuery);
       console.log("Read successful, documents found:", querySnapshot.size);
+
+      // Clean up test document
+      await deleteDoc(docRef);
+      console.log("Test document cleaned up");
 
       setSuccessMessage("Firebase connection is working correctly!");
       setTimeout(() => setSuccessMessage(null), 5000);

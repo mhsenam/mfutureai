@@ -352,7 +352,7 @@ export default function Home() {
           <div className="max-w-7xl mx-auto flex flex-col items-center justify-center">
             <div className="flex space-x-6 mb-4">
               <a
-                href="https://github.com"
+                href="https://github.com/mhsenam"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white social-icon"
@@ -361,7 +361,7 @@ export default function Home() {
                 <FaGithub size={24} />
               </a>
               <a
-                href="https://linkedin.com"
+                href="https://linkedin.com/in/mhsenam"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white social-icon"
@@ -370,7 +370,7 @@ export default function Home() {
                 <FaLinkedin size={24} />
               </a>
               <a
-                href="https://instagram.com"
+                href="https://instagram.com/mhsenamm"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white social-icon"
@@ -379,7 +379,7 @@ export default function Home() {
                 <FaInstagram size={24} />
               </a>
               <a
-                href="https://twitter.com"
+                href="https://twitter.com/mhsenam"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white social-icon"
