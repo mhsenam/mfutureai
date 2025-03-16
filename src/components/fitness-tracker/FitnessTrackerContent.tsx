@@ -199,6 +199,18 @@ interface WorkoutEntry {
   notes?: string;
 }
 
+// Define PillReminder interface
+interface PillReminder {
+  id: string;
+  name: string;
+  frequency: "daily" | "weekly" | "specific_date";
+  time: string;
+  daysOfWeek?: string[];
+  specificDate?: string | null;
+  userId: string;
+  createdAt: string;
+}
+
 export default function FitnessTrackerContent() {
   const { currentUser, logout } = useAuth();
   const router = useRouter();
@@ -213,13 +225,28 @@ export default function FitnessTrackerContent() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // State for active tab
-  const [activeTab, setActiveTab] = useState<"workouts" | "weight">("workouts");
+  const [activeTab, setActiveTab] = useState<"workouts" | "weight" | "pills">(
+    "workouts"
+  );
 
   // State for weight input
   const [weightInput, setWeightInput] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
+
+  // Add state for pills
+  const [pills, setPills] = useState<PillReminder[]>([]);
+  const [showPillForm, setShowPillForm] = useState(false);
+  const [pillFormData, setPillFormData] = useState<Omit<PillReminder, "id">>({
+    name: "",
+    frequency: "daily",
+    time: "09:00",
+    daysOfWeek: [],
+    specificDate: null,
+    userId: currentUser?.uid || "",
+    createdAt: new Date().toISOString(),
+  });
 
   // State for form
   const [showForm, setShowForm] = useState(false);
@@ -1170,6 +1197,181 @@ export default function FitnessTrackerContent() {
     }
   }, []);
 
+  // Add these functions after the existing useEffect hooks
+
+  // Load pill reminders from Firestore
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const pillsRef = collection(db, "pillReminders");
+    let pillsQuery;
+
+    try {
+      // Try to use the query with ordering
+      pillsQuery = query(
+        pillsRef,
+        where("userId", "==", currentUser.uid),
+        orderBy("createdAt", "desc")
+      );
+    } catch (error) {
+      // Fallback to basic query if index is not ready
+      console.warn(
+        "Falling back to basic query while index is being created:",
+        error
+      );
+      pillsQuery = query(pillsRef, where("userId", "==", currentUser.uid));
+    }
+
+    const unsubscribePills = onSnapshot(
+      pillsQuery,
+      (snapshot) => {
+        const pillData: PillReminder[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          pillData.push({
+            id: doc.id,
+            name: data.name,
+            frequency: data.frequency,
+            time: data.time,
+            daysOfWeek: data.daysOfWeek || [],
+            specificDate: data.specificDate,
+            userId: data.userId,
+            createdAt: data.createdAt,
+          });
+        });
+        // Sort manually if we're using the fallback query
+        if (!pillsQuery.toString().includes("orderBy")) {
+          pillData.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        }
+        setPills(pillData);
+      },
+      (error) => {
+        console.error("Error fetching pill reminders:", error);
+        // If we get an index error, retry with the basic query
+        if (
+          error.code === "failed-precondition" ||
+          error.code === "resource-exhausted"
+        ) {
+          console.warn("Retrying with basic query due to index error");
+          const basicQuery = query(
+            pillsRef,
+            where("userId", "==", currentUser.uid)
+          );
+          return onSnapshot(basicQuery, (snapshot) => {
+            const pillData: PillReminder[] = [];
+            snapshot.forEach((doc) => {
+              const data = doc.data();
+              pillData.push({
+                id: doc.id,
+                name: data.name,
+                frequency: data.frequency,
+                time: data.time,
+                daysOfWeek: data.daysOfWeek || [],
+                specificDate: data.specificDate,
+                userId: data.userId,
+                createdAt: data.createdAt,
+              });
+            });
+            // Sort manually since we're not using orderBy
+            pillData.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+            setPills(pillData);
+          });
+        }
+      }
+    );
+
+    return () => {
+      unsubscribePills();
+    };
+  }, [currentUser]);
+
+  // Handle pill form submission
+  const handlePillSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!currentUser) {
+      setError("You must be logged in to save pill reminders");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const pillsRef = collection(db, "pillReminders");
+
+      // Create the pill reminder object
+      const newPillReminder = {
+        ...pillFormData,
+        userId: currentUser.uid,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Add to Firestore
+      await addDoc(pillsRef, newPillReminder);
+
+      // Reset form
+      setPillFormData({
+        name: "",
+        frequency: "daily",
+        time: "09:00",
+        daysOfWeek: [],
+        specificDate: null,
+        userId: currentUser.uid,
+        createdAt: new Date().toISOString(),
+      });
+
+      setShowPillForm(false);
+      setSuccessMessage("Pill reminder saved successfully!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (err) {
+      console.error("Error saving pill reminder:", err);
+      setError(
+        `Failed to save pill reminder: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle pill deletion
+  const handlePillDelete = async (pillId: string) => {
+    if (!currentUser) return;
+
+    try {
+      await deleteDoc(doc(db, "pillReminders", pillId));
+      setSuccessMessage("Pill reminder deleted successfully!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Error deleting pill reminder:", error);
+      setError("Failed to delete pill reminder");
+    }
+  };
+
+  // Handle pill edit
+  const handlePillEdit = (pill: PillReminder) => {
+    setPillFormData({
+      name: pill.name,
+      frequency: pill.frequency,
+      time: pill.time,
+      daysOfWeek: pill.daysOfWeek || [],
+      specificDate: pill.specificDate,
+      userId: pill.userId,
+      createdAt: pill.createdAt,
+    });
+    setShowPillForm(true);
+  };
+
   // If still loading or not logged in show loading state
   if (!currentUser || isInitialLoading) {
     return (
@@ -1448,6 +1650,16 @@ export default function FitnessTrackerContent() {
               >
                 Weight Tracker
               </button>
+              <button
+                className={`py-2 px-4 font-medium text-sm sm:text-base ${
+                  activeTab === "pills"
+                    ? "border-b-2 border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
+                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20"
+                }`}
+                onClick={() => setActiveTab("pills")}
+              >
+                Pills Reminder
+              </button>
             </div>
           </div>
 
@@ -1652,284 +1864,599 @@ export default function FitnessTrackerContent() {
               </>
             ) : (
               <>
-                {/* Weight Tracker */}
-                <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-6 mb-6">
-                  <div className="flex justify-between items-center mb-5">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      Weight Calendar
-                    </h2>
+                {activeTab === "weight" ? (
+                  <>
+                    {/* Weight Tracker */}
+                    <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-6 mb-6">
+                      <div className="flex justify-between items-center mb-5">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                          Weight Calendar
+                        </h2>
 
-                    {weightTrend && (
-                      <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-dark-lighter px-3 py-1 rounded-full">
-                        You have {weightTrend.direction}{" "}
-                        {Math.abs(parseFloat(weightTrend.totalChange))}kg over{" "}
-                        {weightTrend.period}
+                        {weightTrend && (
+                          <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-dark-lighter px-3 py-1 rounded-full">
+                            You have {weightTrend.direction}{" "}
+                            {Math.abs(parseFloat(weightTrend.totalChange))}kg
+                            over {weightTrend.period}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Calendar Navigation */}
-                  <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-                    <div className="flex items-center">
-                      <button
-                        onClick={prevMonth}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20 rounded-full transition-colors"
-                        aria-label="Previous month"
-                      >
-                        <FaChevronLeft />
-                      </button>
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mx-2">
-                        {formatMonthYear(currentMonth)}
-                      </h3>
-                      <button
-                        onClick={nextMonth}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20 rounded-full transition-colors"
-                        aria-label="Next month"
-                      >
-                        <FaChevronRight />
-                      </button>
-                    </div>
-
-                    {/* Today button */}
-                    <button
-                      onClick={goToToday}
-                      className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800/60 transition-colors"
-                    >
-                      <FaCalendarDay /> Today
-                    </button>
-                  </div>
-
-                  {/* Calendar hint */}
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">
-                    <span className="hidden md:inline">
-                      Click to select or hold for 2 seconds for quick entry
-                    </span>
-                    <span className="md:hidden">Tap on a day to select it</span>
-                  </div>
-
-                  {/* Calendar */}
-                  <div className="mb-6 px-1 sm:px-2">
-                    {/* Day names */}
-                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5 md:gap-2 mb-2">
-                      {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                        (day) => (
-                          <div
-                            key={day}
-                            className="text-center text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 py-1"
+                      {/* Calendar Navigation */}
+                      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+                        <div className="flex items-center">
+                          <button
+                            onClick={prevMonth}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                            aria-label="Previous month"
                           >
-                            {/* Show abbreviated day names on small screens */}
-                            <span className="hidden sm:inline">{day}</span>
-                            <span className="sm:hidden">
-                              {day.substring(0, 1)}
-                            </span>
-                          </div>
-                        )
-                      )}
-                    </div>
-                    {/* test */}
-
-                    {/* Calendar days */}
-                    <div className="grid grid-cols-7 gap-1 sm:gap-1.5 md:gap-2">
-                      {generateCalendarDays().map((day, index) => {
-                        if (day === null) {
-                          return (
-                            <div
-                              key={`empty-${index}`}
-                              className="calendar-day"
-                            ></div>
-                          );
-                        }
-
-                        const dateString = getDateString(day);
-                        const weight = getWeightForDate(dateString);
-                        const isSelected = dateString === selectedDate;
-                        const isToday =
-                          dateString === new Date().toISOString().split("T")[0];
-                        const isLongPressing = longPressActive === day;
-
-                        return (
-                          <div
-                            key={`day-${day}`}
-                            className={`calendar-day border border-gray-300 dark:border-gray-700 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden p-0.5 sm:p-1.5
-                              ${
-                                isSelected
-                                  ? "selected bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600"
-                                  : ""
-                              }
-                              ${weight ? "has-weight" : ""}
-                              ${
-                                isToday
-                                  ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-dark-primary"
-                                  : ""
-                              }
-                              ${isLongPressing ? "animate-pulse" : ""}
-                              hover:bg-blue-50 dark:hover:bg-blue-900/20
-                            `}
-                            onClick={() => handleDateClick(day)}
-                            onMouseDown={() => handleDayMouseDown(day)}
-                            onMouseUp={handleDayMouseUp}
-                            onMouseLeave={handleDayMouseLeave}
-                            onTouchStart={() => handleDateClick(day)} // For mobile, just use click
+                            <FaChevronLeft />
+                          </button>
+                          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mx-2">
+                            {formatMonthYear(currentMonth)}
+                          </h3>
+                          <button
+                            onClick={nextMonth}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                            aria-label="Next month"
                           >
-                            <div
-                              className={`text-gray-900 dark:text-white text-sm sm:text-base ${
-                                isToday ? "font-bold" : ""
-                              }`}
-                            >
-                              {day}
-                            </div>
+                            <FaChevronRight />
+                          </button>
+                        </div>
 
-                            {weight && (
-                              <div className="weight-value text-blue-700 dark:text-blue-300 font-medium text-[0.6rem] sm:text-[0.7rem]">
-                                {weight}kg
-                              </div>
-                            )}
-
-                            {/* Long press progress bar */}
-                            {isLongPressing && (
-                              <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-200 dark:bg-gray-700">
-                                <div
-                                  className="h-full bg-blue-600 transition-all duration-50 ease-linear"
-                                  style={{ width: `${longPressProgress}%` }}
-                                ></div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Weight Entry Form - make it wider and more mobile-friendly */}
-                  <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-4 sm:p-6 md:p-8 mb-6 w-full">
-                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                      Record Weight for{" "}
-                      <span className="text-blue-600 dark:text-blue-400">
-                        {new Date(selectedDate).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </h3>
-
-                    <form onSubmit={handleWeightSubmit} className="space-y-4">
-                      <div>
-                        <label
-                          htmlFor="weight"
-                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        {/* Today button */}
+                        <button
+                          onClick={goToToday}
+                          className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800/60 transition-colors"
                         >
-                          Weight (kg)
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            id="weight"
-                            name="weight"
-                            min="20"
-                            max="500"
-                            step="0.1"
-                            value={weightInput}
-                            onChange={(e) => setWeightInput(e.target.value)}
-                            className="w-full p-3 sm:p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-gray-100"
-                            placeholder="Enter your weight in kg"
-                            required
-                          />
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                            <span className="text-gray-500 dark:text-gray-400">
-                              kg
-                            </span>
-                          </div>
+                          <FaCalendarDay /> Today
+                        </button>
+                      </div>
+
+                      {/* Calendar hint */}
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">
+                        <span className="hidden md:inline">
+                          Click to select or hold for 2 seconds for quick entry
+                        </span>
+                        <span className="md:hidden">
+                          Tap on a day to select it
+                        </span>
+                      </div>
+
+                      {/* Calendar */}
+                      <div className="mb-6 px-1 sm:px-2">
+                        {/* Day names */}
+                        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 md:gap-2 mb-2">
+                          {[
+                            "Sun",
+                            "Mon",
+                            "Tue",
+                            "Wed",
+                            "Thu",
+                            "Fri",
+                            "Sat",
+                          ].map((day) => (
+                            <div
+                              key={day}
+                              className="text-center text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 py-1"
+                            >
+                              {/* Show abbreviated day names on small screens */}
+                              <span className="hidden sm:inline">{day}</span>
+                              <span className="sm:hidden">
+                                {day.substring(0, 1)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        {/* test */}
+
+                        {/* Calendar days */}
+                        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 md:gap-2">
+                          {generateCalendarDays().map((day, index) => {
+                            if (day === null) {
+                              return (
+                                <div
+                                  key={`empty-${index}`}
+                                  className="calendar-day"
+                                ></div>
+                              );
+                            }
+
+                            const dateString = getDateString(day);
+                            const weight = getWeightForDate(dateString);
+                            const isSelected = dateString === selectedDate;
+                            const isToday =
+                              dateString ===
+                              new Date().toISOString().split("T")[0];
+                            const isLongPressing = longPressActive === day;
+
+                            return (
+                              <div
+                                key={`day-${day}`}
+                                className={`calendar-day border border-gray-300 dark:border-gray-700 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden p-0.5 sm:p-1.5
+                                  ${
+                                    isSelected
+                                      ? "selected bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600"
+                                      : ""
+                                  }
+                                  ${weight ? "has-weight" : ""}
+                                  ${
+                                    isToday
+                                      ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-dark-primary"
+                                      : ""
+                                  }
+                                  ${isLongPressing ? "animate-pulse" : ""}
+                                  hover:bg-blue-50 dark:hover:bg-blue-900/20
+                                `}
+                                onClick={() => handleDateClick(day)}
+                                onMouseDown={() => handleDayMouseDown(day)}
+                                onMouseUp={handleDayMouseUp}
+                                onMouseLeave={handleDayMouseLeave}
+                                onTouchStart={() => handleDateClick(day)} // For mobile, just use click
+                              >
+                                <div
+                                  className={`text-gray-900 dark:text-white text-sm sm:text-base ${
+                                    isToday ? "font-bold" : ""
+                                  }`}
+                                >
+                                  {day}
+                                </div>
+
+                                {weight && (
+                                  <div className="weight-value text-blue-700 dark:text-blue-300 font-medium text-[0.6rem] sm:text-[0.7rem]">
+                                    {weight}kg
+                                  </div>
+                                )}
+
+                                {/* Long press progress bar */}
+                                {isLongPressing && (
+                                  <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-200 dark:bg-gray-700">
+                                    <div
+                                      className="h-full bg-blue-600 transition-all duration-50 ease-linear"
+                                      style={{ width: `${longPressProgress}%` }}
+                                    ></div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                        <button
-                          type="submit"
-                          className={`px-4 py-3 sm:py-4 rounded-lg transition-colors flex items-center justify-center ${
-                            isSaving || !firebaseReady
-                              ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-                              : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white shadow-sm hover:shadow"
-                          }`}
-                          disabled={isSaving || !firebaseReady}
-                        >
-                          {isSaving ? (
-                            <>
-                              <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                              Saving...
-                            </>
-                          ) : !firebaseReady ? (
-                            "Firebase Initializing..."
-                          ) : (
-                            "Save"
-                          )}
-                        </button>
+                      {/* Weight Entry Form - make it wider and more mobile-friendly */}
+                      <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-4 sm:p-6 md:p-8 mb-6 w-full">
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                          Record Weight for{" "}
+                          <span className="text-blue-600 dark:text-blue-400">
+                            {new Date(selectedDate).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )}
+                          </span>
+                        </h3>
 
-                        {/* Improved Cancel button */}
-                        {isSaving && (
+                        <form
+                          onSubmit={handleWeightSubmit}
+                          className="space-y-4"
+                        >
+                          <div>
+                            <label
+                              htmlFor="weight"
+                              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                            >
+                              Weight (kg)
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                id="weight"
+                                name="weight"
+                                min="20"
+                                max="500"
+                                step="0.1"
+                                value={weightInput}
+                                onChange={(e) => setWeightInput(e.target.value)}
+                                className="w-full p-3 sm:p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-gray-100"
+                                placeholder="Enter your weight in kg"
+                                required
+                              />
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  kg
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                            <button
+                              type="submit"
+                              className={`px-4 py-3 sm:py-4 rounded-lg transition-colors flex items-center justify-center ${
+                                isSaving || !firebaseReady
+                                  ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                                  : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white shadow-sm hover:shadow"
+                              }`}
+                              disabled={isSaving || !firebaseReady}
+                            >
+                              {isSaving ? (
+                                <>
+                                  <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                  Saving...
+                                </>
+                              ) : !firebaseReady ? (
+                                "Firebase Initializing..."
+                              ) : (
+                                "Save"
+                              )}
+                            </button>
+
+                            {/* Improved Cancel button */}
+                            {isSaving && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsSaving(false);
+                                  setError(
+                                    "Save operation was cancelled. Please try again."
+                                  );
+                                }}
+                                className="px-4 py-3 sm:py-4 rounded-lg bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white shadow-sm transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        </form>
+                      </div>
+
+                      {/* Weight History - make it wider */}
+                      <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-6 sm:p-8 w-full">
+                        <div className="flex justify-between items-center mb-5">
+                          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+                            Weight History
+                          </h2>
                           <button
-                            type="button"
-                            onClick={() => {
-                              setIsSaving(false);
-                              setError(
-                                "Save operation was cancelled. Please try again."
-                              );
-                            }}
-                            className="px-4 py-3 sm:py-4 rounded-lg bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white shadow-sm transition-colors"
+                            onClick={manualRefresh}
+                            disabled={isFetching}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/60 transition-colors"
                           >
-                            Cancel
+                            {isFetching ? (
+                              <>
+                                <div className="inline-block h-4 w-4 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                                Refreshing...
+                              </>
+                            ) : (
+                              <>
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                  />
+                                </svg>
+                                Refresh Data
+                              </>
+                            )}
                           </button>
+                        </div>
+
+                        {/* Weight History Component */}
+                        <WeightHistory
+                          weightHistory={weightEntries}
+                          isLoading={isInitialLoading || isFetching}
+                          error={error}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Pills Reminder */}
+                    <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-6 mb-6">
+                      <div className="flex justify-between items-center mb-5">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                          Pills Reminder
+                        </h2>
+
+                        {/* Add Pills Button */}
+                        <div className="w-full max-w-4xl mb-6">
+                          <button
+                            onClick={() => setShowPillForm(!showPillForm)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                          >
+                            <FaPlus /> {showPillForm ? "Cancel" : "Add Pill"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Pills List */}
+                      <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-6 mb-6">
+                        {pills.length === 0 ? (
+                          <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="text-gray-700">
+                              No pills reminders added yet. Start by adding your
+                              first reminder!
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {pills.map((pill) => (
+                              <div
+                                key={pill.id}
+                                className="border border-gray-300 rounded-lg p-4 bg-white/95 hover:shadow-md transition-shadow"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gray-100 rounded-full">
+                                      <FaHeartbeat className="text-green-600" />
+                                    </div>
+                                    <div>
+                                      <h3 className="font-medium text-gray-900">
+                                        {pill.name}
+                                      </h3>
+                                      <p className="text-sm text-gray-700">
+                                        {pill.frequency === "daily"
+                                          ? "Daily"
+                                          : pill.frequency === "weekly"
+                                          ? "Weekly"
+                                          : "Specific Date"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handlePillEdit(pill)}
+                                      className="text-blue-700 hover:text-blue-900 p-1"
+                                      aria-label="Edit pill"
+                                    >
+                                      <FaEdit />
+                                    </button>
+                                    <button
+                                      onClick={() => handlePillDelete(pill.id)}
+                                      className="text-red-700 hover:text-red-900 p-1"
+                                      aria-label="Delete pill"
+                                    >
+                                      <FaTrash />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    </form>
-                  </div>
 
-                  {/* Weight History - make it wider */}
-                  <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-6 sm:p-8 w-full">
-                    <div className="flex justify-between items-center mb-5">
-                      <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-                        Weight History
-                      </h2>
-                      <button
-                        onClick={manualRefresh}
-                        disabled={isFetching}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/60 transition-colors"
-                      >
-                        {isFetching ? (
-                          <>
-                            <div className="inline-block h-4 w-4 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                            Refreshing...
-                          </>
-                        ) : (
-                          <>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              />
-                            </svg>
-                            Refresh Data
-                          </>
-                        )}
-                      </button>
+                      {/* Add/Edit Pill Form */}
+                      {showPillForm && (
+                        <div className="bg-white/90 dark:bg-dark-primary/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg w-full max-w-4xl mb-6">
+                          <h2 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-white">
+                            Add New Pill
+                          </h2>
+                          <form
+                            onSubmit={handlePillSubmit}
+                            className="space-y-6"
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-2">
+                                <label
+                                  htmlFor="name"
+                                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
+                                  Pill Name
+                                </label>
+                                <input
+                                  type="text"
+                                  id="name"
+                                  name="name"
+                                  value={pillFormData.name}
+                                  onChange={(e) =>
+                                    setPillFormData({
+                                      ...pillFormData,
+                                      name: e.target.value,
+                                    })
+                                  }
+                                  placeholder="e.g., Vitamin D"
+                                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                                  required
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label
+                                  htmlFor="frequency"
+                                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
+                                  Frequency
+                                </label>
+                                <select
+                                  id="frequency"
+                                  name="frequency"
+                                  value={pillFormData.frequency}
+                                  onChange={(e) =>
+                                    setPillFormData({
+                                      ...pillFormData,
+                                      frequency: e.target.value as
+                                        | "daily"
+                                        | "weekly"
+                                        | "specific_date",
+                                      // Reset daysOfWeek when switching to daily
+                                      daysOfWeek:
+                                        e.target.value === "daily"
+                                          ? []
+                                          : pillFormData.daysOfWeek,
+                                    })
+                                  }
+                                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white"
+                                  required
+                                >
+                                  <option value="daily">Daily</option>
+                                  <option value="weekly">Weekly</option>
+                                  <option value="specific_date">
+                                    Specific Date
+                                  </option>
+                                </select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label
+                                  htmlFor="time"
+                                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
+                                  Time
+                                </label>
+                                <input
+                                  type="time"
+                                  id="time"
+                                  name="time"
+                                  value={pillFormData.time}
+                                  onChange={(e) =>
+                                    setPillFormData({
+                                      ...pillFormData,
+                                      time: e.target.value,
+                                    })
+                                  }
+                                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white"
+                                  required
+                                />
+                              </div>
+
+                              {pillFormData.frequency === "specific_date" && (
+                                <div className="space-y-2">
+                                  <label
+                                    htmlFor="specificDate"
+                                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                  >
+                                    Specific Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    id="specificDate"
+                                    name="specificDate"
+                                    value={pillFormData.specificDate || ""}
+                                    onChange={(e) =>
+                                      setPillFormData({
+                                        ...pillFormData,
+                                        specificDate: e.target.value,
+                                      })
+                                    }
+                                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white"
+                                  />
+                                </div>
+                              )}
+
+                              {pillFormData.frequency === "weekly" && (
+                                <div className="space-y-2 md:col-span-2">
+                                  <label
+                                    htmlFor="daysOfWeek"
+                                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                                  >
+                                    Days of Week
+                                  </label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {[
+                                      "Monday",
+                                      "Tuesday",
+                                      "Wednesday",
+                                      "Thursday",
+                                      "Friday",
+                                      "Saturday",
+                                      "Sunday",
+                                    ].map((day) => (
+                                      <label
+                                        key={day}
+                                        className={`
+                                          flex items-center justify-center px-4 py-2 rounded-lg cursor-pointer
+                                          transition-all duration-200 ease-in-out
+                                          ${
+                                            pillFormData.daysOfWeek?.includes(
+                                              day
+                                            )
+                                              ? "bg-blue-500 text-white hover:bg-blue-600"
+                                              : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                          }
+                                        `}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          value={day}
+                                          checked={pillFormData.daysOfWeek?.includes(
+                                            day
+                                          )}
+                                          onChange={(e) => {
+                                            const isChecked = e.target.checked;
+                                            setPillFormData({
+                                              ...pillFormData,
+                                              daysOfWeek: isChecked
+                                                ? [
+                                                    ...(pillFormData.daysOfWeek ||
+                                                      []),
+                                                    day,
+                                                  ]
+                                                : pillFormData.daysOfWeek?.filter(
+                                                    (d) => d !== day
+                                                  ) || [],
+                                            });
+                                          }}
+                                          className="sr-only"
+                                        />
+                                        <span>{day.slice(0, 3)}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4">
+                              <button
+                                type="button"
+                                onClick={() => setShowPillForm(false)}
+                                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                              >
+                                {isSaving ? (
+                                  <div className="flex items-center">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    Saving...
+                                  </div>
+                                ) : (
+                                  "Save Pill"
+                                )}
+                              </button>
+                            </div>
+
+                            {error && (
+                              <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
+                                {error}
+                              </div>
+                            )}
+
+                            {successMessage && (
+                              <div className="mt-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg">
+                                {successMessage}
+                              </div>
+                            )}
+                          </form>
+                        </div>
+                      )}
                     </div>
-
-                    {/* Weight History Component */}
-                    <WeightHistory
-                      weightHistory={weightEntries}
-                      isLoading={isInitialLoading || isFetching}
-                      error={error}
-                    />
-                  </div>
-                </div>
+                  </>
+                )}
               </>
             )}
           </div>
