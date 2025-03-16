@@ -1159,7 +1159,7 @@ export default function FitnessTracker() {
     }
   }, []);
 
-  // If still loading or not logged in, show loading state
+  // If still loading or not logged in show loading state
   if (!currentUser || isInitialLoading) {
     return (
       <div className="flex flex-col min-h-screen relative">
