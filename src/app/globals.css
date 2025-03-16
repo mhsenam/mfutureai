@@ -73,6 +73,7 @@ body {
 .dark button:hover,
 .dark a:hover {
   transition: all 0.2s ease-in-out;
+  background-color: rgba(59, 130, 246, 0.15) !important;
 }
 
 .dark input:focus,
@@ -80,6 +81,87 @@ body {
 .dark select:focus {
   --tw-ring-color: rgba(59, 130, 246, 0.5);
   border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Improve form elements in dark mode */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: rgb(30, 41, 59) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+  color: rgb(229, 231, 235) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgba(156, 163, 175, 0.8) !important;
+}
+
+/* Improve table styling in dark mode */
+.dark table {
+  background-color: rgb(15, 23, 42) !important;
+}
+
+.dark th {
+  background-color: rgb(30, 41, 59) !important;
+  color: rgb(209, 213, 219) !important;
+}
+
+.dark td {
+  border-color: rgba(75, 85, 99, 0.5) !important;
+  color: rgb(229, 231, 235) !important;
+}
+
+.dark tr:hover {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Improve modal styling in dark mode */
+.dark .modal {
+  background-color: rgb(15, 23, 42) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+}
+
+/* Improve card styling in dark mode */
+.dark .card {
+  background-color: rgb(30, 41, 59) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+}
+
+/* Improve dropdown styling in dark mode */
+.dark .dropdown {
+  background-color: rgb(30, 41, 59) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+}
+
+.dark .dropdown-item:hover {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Improve hover states for navigation items */
+.dark .nav-item:hover {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Improve hover states for calendar days */
+.dark .calendar-day:hover {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+.dark .calendar-day.selected {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Improve hover states for form elements */
+.dark input:hover,
+.dark textarea:hover,
+.dark select:hover {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+}
+
+/* Improve hover states for cards */
+.dark .card:hover {
+  background-color: rgba(30, 41, 59, 0.8) !important;
 }
 
 /* Add any other global styles here */

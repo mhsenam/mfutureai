@@ -14,6 +14,13 @@ module.exports = {
           lighter: '#1e293b', // Slightly lighter dark blue
           lightest: '#334155', // Even lighter dark blue
           accent: '#3b82f6', // Blue accent
+          hover: '#1f2937', // Hover state color
+          border: '#374151', // Border color
+          text: {
+            primary: '#f1f5f9',
+            secondary: '#cbd5e1',
+            muted: '#94a3b8',
+          },
         },
       },
       backgroundColor: {
@@ -21,6 +28,9 @@ module.exports = {
           primary: '#0f172a',
           secondary: '#1e293b',
           accent: '#3b82f6',
+          hover: '#1f2937',
+          card: '#1e293b',
+          input: '#1e293b',
         },
       },
       textColor: {
@@ -28,6 +38,20 @@ module.exports = {
           primary: '#f1f5f9',
           secondary: '#cbd5e1',
           muted: '#94a3b8',
+          accent: '#60a5fa',
+        },
+      },
+      borderColor: {
+        dark: {
+          DEFAULT: '#374151',
+          accent: '#3b82f6',
+          hover: '#4b5563',
+        },
+      },
+      ringColor: {
+        dark: {
+          DEFAULT: '#374151',
+          accent: '#3b82f6',
         },
       },
       backgroundImage: {

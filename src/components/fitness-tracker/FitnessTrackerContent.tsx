@@ -124,7 +124,6 @@ function WeightHistory({
           </thead>
           <tbody className="bg-white dark:bg-dark-primary divide-y divide-gray-200 dark:divide-gray-700">
             {weightHistory.map((entry, index) => {
-              // Calculate weight change if not the first entry
               const prevEntry =
                 index < weightHistory.length - 1
                   ? weightHistory[index + 1]
@@ -138,9 +137,9 @@ function WeightHistory({
               return (
                 <tr
                   key={entry.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  className="hover:bg-gray-50 dark:hover:bg-blue-900/20 transition-colors"
                 >
-                  <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                  <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                     {new Date(entry.date).toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",
@@ -148,7 +147,7 @@ function WeightHistory({
                       year: "numeric",
                     })}
                   </td>
-                  <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white font-semibold">
+                  <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-gray-100 font-semibold">
                     {entry.weight} kg
                   </td>
                   <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right">
@@ -1422,7 +1421,7 @@ export default function FitnessTracker() {
                 className={`py-2 px-4 font-medium text-sm sm:text-base ${
                   activeTab === "workouts"
                     ? "border-b-2 border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
-                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20"
                 }`}
                 onClick={() => setActiveTab("workouts")}
               >
@@ -1432,7 +1431,7 @@ export default function FitnessTracker() {
                 className={`py-2 px-4 font-medium text-sm sm:text-base ${
                   activeTab === "weight"
                     ? "border-b-2 border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
-                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20"
                 }`}
                 onClick={() => setActiveTab("weight")}
               >
@@ -1663,7 +1662,7 @@ export default function FitnessTracker() {
                     <div className="flex items-center">
                       <button
                         onClick={prevMonth}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20 rounded-full transition-colors"
                         aria-label="Previous month"
                       >
                         <FaChevronLeft />
@@ -1673,7 +1672,7 @@ export default function FitnessTracker() {
                       </h3>
                       <button
                         onClick={nextMonth}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-blue-300 hover:bg-gray-100 dark:hover:bg-blue-900/20 rounded-full transition-colors"
                         aria-label="Next month"
                       >
                         <FaChevronRight />
@@ -1742,7 +1741,7 @@ export default function FitnessTracker() {
                             className={`calendar-day border border-gray-300 dark:border-gray-700 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden p-0.5 sm:p-1.5
                               ${
                                 isSelected
-                                  ? "selected bg-blue-100 dark:bg-blue-900/70 border-blue-400 dark:border-blue-600"
+                                  ? "selected bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600"
                                   : ""
                               }
                               ${weight ? "has-weight" : ""}
@@ -1752,6 +1751,7 @@ export default function FitnessTracker() {
                                   : ""
                               }
                               ${isLongPressing ? "animate-pulse" : ""}
+                              hover:bg-blue-50 dark:hover:bg-blue-900/20
                             `}
                             onClick={() => handleDateClick(day)}
                             onMouseDown={() => handleDayMouseDown(day)}
@@ -2023,24 +2023,24 @@ export default function FitnessTracker() {
         {/* Modal with blurred background and click-outside dismissal */}
         {showModal && (
           <div
-            className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50 p-4 transition-all duration-200"
-            onClick={() => setShowModal(false)} // Close when clicking outside
+            className="fixed inset-0 backdrop-blur-md bg-black/30 dark:bg-black/50 flex items-center justify-center z-50 p-4 transition-all duration-200"
+            onClick={() => setShowModal(false)}
           >
             <div
               className="bg-white dark:bg-dark-primary rounded-xl shadow-xl max-w-md w-full p-8 relative animate-fadeIn"
-              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
+              onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => setShowModal(false)}
-                className="absolute top-5 right-5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                className="absolute top-5 right-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                 aria-label="Close modal"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-6 w-6"
                   fill="none"
-                  viewBox="0 0 24 24"
                   stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
                   <path
                     strokeLinecap="round"
@@ -2080,7 +2080,7 @@ export default function FitnessTracker() {
                     step="0.1"
                     min="20"
                     max="300"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     required
                     autoFocus
                   />
@@ -2116,7 +2116,6 @@ export default function FitnessTracker() {
                     )}
                   </button>
 
-                  {/* Improved Cancel button */}
                   {isSaving && (
                     <button
                       type="button"

@@ -128,7 +128,7 @@ export default function Navbar() {
               <span
                 className={`text-xl font-bold transition-colors ${
                   pathname === "/fitness-tracker"
-                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                    ? " text-gray-700 dark:text-gray-200 transition-colors"
                     : "text-gray-700 dark:text-gray-200"
                 }`}
               >
@@ -144,7 +144,7 @@ export default function Navbar() {
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 pathname === "/fitness-tracker"
                   ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
-                  : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50"
+                  : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20"
               }`}
             >
               <span className="flex items-center gap-2">
@@ -156,7 +156,7 @@ export default function Navbar() {
               (currentUser ? (
                 <button
                   onClick={handleLogout}
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors"
                   type="button"
                 >
                   <span className="flex items-center gap-2">
@@ -169,7 +169,7 @@ export default function Navbar() {
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     pathname === "/login"
                       ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
-                      : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50"
+                      : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20"
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -182,7 +182,7 @@ export default function Navbar() {
             <div className="relative" ref={desktopThemeDropdownRef}>
               <button
                 onClick={toggleThemeMenu}
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors"
                 aria-label="Theme options"
                 type="button"
               >
@@ -205,7 +205,7 @@ export default function Navbar() {
                         theme === "light"
                           ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
                           : "text-gray-700 dark:text-gray-200"
-                      } hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors`}
+                      } hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors`}
                       role="menuitem"
                       type="button"
                     >
@@ -219,7 +219,7 @@ export default function Navbar() {
                         theme === "dark"
                           ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
                           : "text-gray-700 dark:text-gray-200"
-                      } hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors`}
+                      } hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors`}
                       role="menuitem"
                       type="button"
                     >
@@ -233,7 +233,7 @@ export default function Navbar() {
                         theme === "system"
                           ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
                           : "text-gray-700 dark:text-gray-200"
-                      } hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors`}
+                      } hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors`}
                       role="menuitem"
                       type="button"
                     >
@@ -263,7 +263,7 @@ export default function Navbar() {
             <div className="relative mr-2" ref={mobileThemeDropdownRef}>
               <button
                 onClick={toggleThemeMenu}
-                className="p-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors"
+                className="p-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors"
                 aria-label="Theme options"
                 type="button"
               >
@@ -279,7 +279,7 @@ export default function Navbar() {
                         theme === "light"
                           ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
                           : "text-gray-700 dark:text-gray-200"
-                      } hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors`}
+                      } hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors`}
                       role="menuitem"
                       type="button"
                     >
@@ -293,7 +293,7 @@ export default function Navbar() {
                         theme === "dark"
                           ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
                           : "text-gray-700 dark:text-gray-200"
-                      } hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors`}
+                      } hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors`}
                       role="menuitem"
                       type="button"
                     >
@@ -307,7 +307,7 @@ export default function Navbar() {
                         theme === "system"
                           ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
                           : "text-gray-700 dark:text-gray-200"
-                      } hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors`}
+                      } hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors`}
                       role="menuitem"
                       type="button"
                     >
@@ -317,7 +317,7 @@ export default function Navbar() {
                     </button>
                     <button
                       onClick={debugTheme}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors border-t border-gray-200 dark:border-gray-700"
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors border-t border-gray-200 dark:border-gray-700"
                       role="menuitem"
                       type="button"
                     >
@@ -332,7 +332,7 @@ export default function Navbar() {
 
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50 transition-colors"
+              className="p-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20 transition-colors"
               aria-label="Open menu"
               type="button"
             >
@@ -351,7 +351,7 @@ export default function Navbar() {
               className={`block px-3 py-2 rounded-md text-base font-medium ${
                 pathname === "/fitness-tracker"
                   ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
-                  : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50"
+                  : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20"
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
@@ -363,7 +363,7 @@ export default function Navbar() {
               (currentUser ? (
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50"
+                  className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20"
                   type="button"
                 >
                   <span className="flex items-center gap-2">
@@ -376,7 +376,7 @@ export default function Navbar() {
                   className={`block px-3 py-2 rounded-md text-base font-medium ${
                     pathname === "/login"
                       ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
-                      : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-lightest/50"
+                      : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-blue-900/20"
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
