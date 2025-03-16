@@ -8,7 +8,6 @@ import {
   FaDumbbell,
   FaRunning,
   FaHeartbeat,
-  FaWeight,
   FaChevronLeft,
   FaChevronRight,
   FaCalendarDay,
