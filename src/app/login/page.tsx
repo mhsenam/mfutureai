@@ -82,14 +82,19 @@ export default function Login() {
             background-size: 24px 24px;
             opacity: 0.1;
           }
+
+          :global(.dark) .dotted-pattern {
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            opacity: 0.05;
+          }
         `}</style>
 
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 sm:p-8 shadow-lg w-full max-w-md">
+        <div className="bg-white/80 dark:bg-dark-primary/90 backdrop-blur-sm rounded-2xl p-6 sm:p-8 shadow-lg w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
               {isLogin ? "Welcome Back" : "Create Account"}
             </h1>
-            <p className="text-sm md:text-base text-gray-700 mt-2">
+            <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mt-2">
               {isLogin
                 ? "Sign in to access your fitness tracker"
                 : "Sign up to start tracking your fitness journey"}
@@ -97,13 +102,13 @@ export default function Login() {
           </div>
 
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
           {resetSent && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            <div className="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 px-4 py-3 rounded mb-4">
               Password reset email sent. Please check your inbox.
             </div>
           )}
@@ -112,20 +117,20 @@ export default function Login() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
                 Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaEnvelope className="text-gray-400" />
+                  <FaEnvelope className="text-gray-400 dark:text-gray-500" />
                 </div>
                 <input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-gray-100"
                   placeholder="your@email.com"
                   required
                 />
@@ -135,20 +140,20 @@ export default function Login() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
                 Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaLock className="text-gray-400" />
+                  <FaLock className="text-gray-400 dark:text-gray-500" />
                 </div>
                 <input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-gray-100"
                   placeholder={isLogin ? "Your password" : "Create a password"}
                   required
                 />
@@ -160,7 +165,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={handleResetPassword}
-                  className="text-sm text-blue-600 hover:text-blue-800"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                 >
                   Forgot Password?
                 </button>
@@ -170,7 +175,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors flex items-center justify-center"
+              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white p-2 rounded-lg transition-colors flex items-center justify-center"
             >
               {loading ? (
                 <span className="inline-block h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
@@ -184,7 +189,7 @@ export default function Login() {
           <div className="mt-6 text-center">
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-blue-600 hover:text-blue-800 text-sm"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm"
             >
               {isLogin
                 ? "Don't have an account? Sign Up"
@@ -195,7 +200,7 @@ export default function Login() {
           <div className="mt-4 text-center">
             <Link
               href="/"
-              className="text-gray-600 hover:text-gray-800 text-sm"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm"
             >
               Back to Home
             </Link>
@@ -203,11 +208,11 @@ export default function Login() {
         </div>
       </main>
 
-      <footer className="w-full py-3 sm:py-4 bg-gray-100/80 backdrop-blur-sm border-t border-gray-200 mt-auto relative z-10">
+      <footer className="w-full py-3 sm:py-4 bg-gray-100/80 dark:bg-dark-primary backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 mt-auto relative z-10">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-center">
-            <p className="text-xs sm:text-sm text-gray-600 text-center">
-              © {new Date().getFullYear()} MFuture AI. All rights reserved.
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
+              © {new Date().getFullYear()} FitAmIn. All rights reserved.
             </p>
           </div>
         </div>

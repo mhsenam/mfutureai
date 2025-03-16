@@ -30,6 +30,7 @@ export default function Home() {
   >("hidden");
   const [snackbarInitialRender, setSnackbarInitialRender] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     // Check if device is mobile on initial load
@@ -43,8 +44,30 @@ export default function Home() {
     // Add resize listener
     window.addEventListener("resize", checkIfMobile);
 
+    // Check dark mode
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    };
+
+    // Check initially
+    checkDarkMode();
+
+    // Create a mutation observer to watch for class changes on the html element
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === "class") {
+          checkDarkMode();
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+
     // Cleanup
-    return () => window.removeEventListener("resize", checkIfMobile);
+    return () => {
+      window.removeEventListener("resize", checkIfMobile);
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -143,254 +166,244 @@ export default function Home() {
         </div>
       )}
 
-      <main className="flex-grow flex flex-col items-center justify-center px-4 py-6 sm:p-8 relative z-10">
-        <style jsx>{`
-          @keyframes gradient-rotate {
-            0% {
-              background-position: 0% 50%;
+      <div className="flex-grow flex flex-col dark:bg-dark-primary">
+        <main className="flex-grow flex flex-col items-center justify-center px-4 py-6 sm:p-8 relative z-10 dark:bg-dark-primary">
+          <style jsx>{`
+            @keyframes gradient-rotate {
+              0% {
+                background-position: 0% 50%;
+              }
+              50% {
+                background-position: 100% 50%;
+              }
+              100% {
+                background-position: 0% 50%;
+              }
             }
-            50% {
-              background-position: 100% 50%;
+
+            .gradient-text {
+              background: linear-gradient(90deg, #212529, #dee2e6);
+              background-size: 200% 200%;
+              animation: gradient-rotate 10s linear infinite;
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
             }
-            100% {
-              background-position: 0% 50%;
+
+            /* Dark mode gradient text */
+            :global(.dark) .gradient-text {
+              background: linear-gradient(90deg, #e2e8f0, #94a3b8);
+              background-size: 200% 200%;
+              animation: gradient-rotate 10s linear infinite;
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
             }
-          }
 
-          .gradient-text {
-            background: linear-gradient(90deg, #212529, #dee2e6);
-            background-size: 200% 200%;
-            animation: gradient-rotate 10s linear infinite;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-          }
-
-          .snackbar {
-            position: fixed;
-            bottom: 1rem;
-            right: 1rem;
-            background-color: #333;
-            color: #fff;
-            padding: 0.5rem 1rem;
-            border-radius: 0.25rem;
-            display: inline-block;
-            animation: slideInRight 0.3s ease-in-out;
-            z-index: 1000;
-          }
-
-          @keyframes slideInRight {
-            from {
-              opacity: 0;
-              transform: translateX(20px);
+            .snackbar {
+              position: fixed;
+              bottom: 1rem;
+              right: 1rem;
+              background-color: #333;
+              color: #fff;
+              padding: 0.5rem 1rem;
+              border-radius: 0.25rem;
+              display: inline-block;
+              animation: slideInRight 0.3s ease-in-out;
+              z-index: 1000;
             }
-            to {
-              opacity: 1;
-              transform: translateX(0);
+
+            @keyframes slideInRight {
+              from {
+                opacity: 0;
+                transform: translateX(20px);
+              }
+              to {
+                opacity: 1;
+                transform: translateX(0);
+              }
             }
-          }
 
-          .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-          }
-
-          .scrollbar-hide {
-            -ms-overflow-style: none; /* IE and Edge */
-            scrollbar-width: none; /* Firefox */
-          }
-
-          .social-icon {
-            transition: transform 0.2s ease-in-out, color 0.2s ease-in-out;
-          }
-
-          .social-icon:hover {
-            transform: translateY(-3px);
-            color: #6c757d;
-          }
-
-          /* Responsive testimonials */
-          @media (max-width: 768px) {
-            .background-pattern {
+            .scrollbar-hide::-webkit-scrollbar {
               display: none;
             }
-          }
 
-          /* Improve placeholder color for better readability */
-          ::placeholder {
-            color: #495057;
-            opacity: 1;
-          }
+            .scrollbar-hide {
+              -ms-overflow-style: none; /* IE and Edge */
+              scrollbar-width: none; /* Firefox */
+            }
 
-          .button-container {
-            position: relative;
-            z-index: 20;
-            pointer-events: auto;
-          }
+            .social-icon {
+              transition: transform 0.2s ease-in-out, color 0.2s ease-in-out;
+            }
 
-          .nav-button {
-            cursor: pointer;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-          }
+            .social-icon:hover {
+              transform: translateY(-3px);
+              color: #6c757d;
+            }
 
-          .dotted-pattern {
-            background-image: radial-gradient(#212529 1px, transparent 1px);
-            background-size: 24px 24px;
-            opacity: 0.1;
-          }
-        `}</style>
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-2 gradient-text text-center">
-          MFuture AI
-        </h1>
-        <p className="text-sm md:text-base lg:text-lg text-gray-900 dark:text-gray-100 mb-4 sm:mb-6 text-center">
-          Made with ❤️ by Mohsen Amini
-        </p>
-        <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg transition-transform transform hover:scale-105 p-0">
-          <textarea
-            placeholder="Search AI..."
-            className="w-full p-3 sm:p-4 pr-10 sm:pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-[#ced4da] focus:border-transparent bg-white resize-none overflow-y-auto scrollbar-hide text-gray-900"
-            style={{ lineHeight: "1.5", maxHeight: "4.5em" }}
-            rows={1}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = "auto";
-              target.style.height = target.scrollHeight + "px";
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSearchClick();
+            :global(.dark) .social-icon:hover {
+              color: #f1f5f9;
+            }
+
+            /* Responsive testimonials */
+            @media (max-width: 768px) {
+              .background-pattern {
+                display: none;
               }
-            }}
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-          <button
-            onClick={handleSearchClick}
-            className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 p-1 sm:p-2 text-gray-600 hover:text-gray-900 cursor-pointer"
-            aria-label="Search"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-              className="w-5 h-5 sm:w-6 sm:h-6"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15.75 15.75L19.5 19.5M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z"
-              />
-            </svg>
-          </button>
-        </div>
+            }
 
-        <div
-          className={`relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg p-0 mt-6 sm:mt-8 transition-transform duration-300 ease-in-out transform ${
-            showSearchResult
-              ? "translate-y-0 opacity-100"
-              : "translate-y-full opacity-0"
-          }`}
-          style={{ maxHeight: "calc(100vh - 20px)", marginBottom: "20px" }}
-        >
-          <h2 className="text-lg sm:text-xl font-bold mb-2 text-gray-900">
-            Search Result
-          </h2>
-          <div
-            className="w-full p-3 sm:p-4 border border-gray-300 rounded-lg bg-white overflow-y-auto scrollbar-hide"
-            style={{ minHeight: "120px", maxHeight: "calc(100vh - 150px)" }}
-          >
-            <p className="text-gray-900 scrollbar-hide text-sm sm:text-base">
-              {displayedText}
+            /* Improve placeholder color for better readability */
+            ::placeholder {
+              color: #495057;
+              opacity: 1;
+            }
+
+            :global(.dark) ::placeholder {
+              color: #94a3b8;
+              opacity: 1;
+            }
+
+            .button-container {
+              position: relative;
+              z-index: 20;
+              pointer-events: auto;
+            }
+
+            .nav-button {
+              cursor: pointer;
+              user-select: none;
+              -webkit-tap-highlight-color: transparent;
+            }
+
+            .dotted-pattern {
+              background-image: radial-gradient(#212529 1px, transparent 1px);
+              background-size: 24px 24px;
+              opacity: 0.1;
+            }
+
+            :global(.dark) .dotted-pattern {
+              background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+              opacity: 0.05;
+            }
+          `}</style>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-2 gradient-text text-center">
+            FitAmIn
+          </h1>
+          <p className="text-sm md:text-base lg:text-lg text-gray-900 dark:text-gray-100 mb-4 sm:mb-6 text-center">
+            Made with ❤️ by Mohsen Amini
+          </p>
+          <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg transition-transform transform hover:scale-105 p-0">
+            <textarea
+              placeholder="Search AI..."
+              className="w-full p-3 sm:p-4 pr-10 sm:pr-12 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-[#ced4da] dark:focus:ring-[#3b82f6] focus:border-transparent bg-white dark:bg-dark-lighter resize-none overflow-y-auto scrollbar-hide text-gray-900 dark:text-gray-100"
+              style={{ height: "50px" }}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearchClick();
+                }
+              }}
+            ></textarea>
+            <button
+              onClick={handleSearchClick}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 focus:outline-none transition-colors"
+              aria-label="Search"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                ></path>
+              </svg>
+            </button>
+          </div>
+
+          {showSearchResult && (
+            <div className="mt-6 p-4 bg-white dark:bg-dark-lighter rounded-lg shadow-md w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg text-gray-900 dark:text-gray-100">
+              <p>{displayedText}</p>
+            </div>
+          )}
+
+          <div className="mt-8 sm:mt-12 text-center">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              Welcome to Your Fitness Journey
+            </h2>
+            <p className="text-gray-700 dark:text-gray-300 max-w-2xl mx-auto">
+              Track your workouts, monitor your weight progress, and achieve
+              your fitness goals. Use the navigation menu to access the fitness
+              tracker.
             </p>
           </div>
-        </div>
+        </main>
 
-        <div className="mt-6 text-center max-w-2xl">
-          <h2 className="text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-            Welcome to Your Fitness Journey
-          </h2>
-          <p className="text-gray-700 dark:text-gray-300">
-            Track your workouts, monitor your weight progress, and achieve your
-            fitness goals. Use the navigation menu to access the fitness
-            tracker.
-          </p>
-        </div>
-      </main>
+        <footer
+          className={`w-full py-6 px-4 border-t border-gray-200 dark:border-gray-800 shadow-md dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3),0_-2px_4px_-1px_rgba(0,0,0,0.2)]`}
+          style={{ backgroundColor: isDarkMode ? "#0f172a" : "#f3f4f6" }}
+        >
+          <div className="max-w-7xl mx-auto flex flex-col items-center justify-center">
+            <div className="flex space-x-6 mb-4">
+              <a
+                href="https://github.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white social-icon"
+                aria-label="GitHub"
+              >
+                <FaGithub size={24} />
+              </a>
+              <a
+                href="https://linkedin.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white social-icon"
+                aria-label="LinkedIn"
+              >
+                <FaLinkedin size={24} />
+              </a>
+              <a
+                href="https://instagram.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white social-icon"
+                aria-label="Instagram"
+              >
+                <FaInstagram size={24} />
+              </a>
+              <a
+                href="https://twitter.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white social-icon"
+                aria-label="Twitter"
+              >
+                <FaXTwitter size={24} />
+              </a>
+            </div>
+            <div className="text-gray-700 dark:text-gray-300 text-sm">
+              © 2025 FitAmIn. All rights reserved.
+            </div>
+          </div>
+        </footer>
+      </div>
 
       {snackbarVisible && (
         <div
-          className="fixed bottom-4 right-4 p-3 sm:p-4 bg-white text-gray-900 rounded-xl shadow-md text-sm sm:text-base"
-          style={{
-            transform: snackbarInitialRender
-              ? "translateY(100px)"
-              : snackbarAnimation === "entering" ||
-                snackbarAnimation === "visible"
-              ? "translateY(0)"
-              : "translateY(100px)",
-            opacity: snackbarInitialRender
-              ? 0
-              : snackbarAnimation === "entering" ||
-                snackbarAnimation === "visible"
-              ? 1
-              : 0,
-            transition: "transform 300ms ease-out, opacity 300ms ease-out",
-            zIndex: 50,
-          }}
+          className={`snackbar ${
+            snackbarInitialRender ? "" : snackbarAnimation
+          }`}
         >
-          Please enter a valid search query.
+          Please enter a search term
         </div>
       )}
-
-      {/* Footer with social media links */}
-      <footer className="w-full py-3 sm:py-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto relative z-10 transition-colors">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center justify-center">
-            <div className="flex space-x-4 sm:space-x-20 mb-2">
-              <a
-                href="https://github.com/mhsenam"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mr-5 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 social-icon"
-                aria-label="GitHub"
-              >
-                <FaGithub size={20} className="sm:w-6 sm:h-6" />
-              </a>
-              <a
-                href="https://linkedin.com/in/mhsenam"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mr-5 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 social-icon"
-                aria-label="LinkedIn"
-              >
-                <FaLinkedin size={20} className="sm:w-6 sm:h-6" />
-              </a>
-              <a
-                href="https://instagram.com/mhsenamm"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mr-5 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 social-icon"
-                aria-label="Instagram"
-              >
-                <FaInstagram size={20} className="sm:w-6 sm:h-6" />
-              </a>
-              <a
-                href="https://x.com/mhsenam"
-                target="_blank"
-                rel="noopener noreferrer"
-                className=" text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 social-icon"
-                aria-label="X (Twitter)"
-              >
-                <FaXTwitter size={20} className="sm:w-6 sm:h-6" />
-              </a>
-            </div>
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
-              © {new Date().getFullYear()} MFuture AI. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

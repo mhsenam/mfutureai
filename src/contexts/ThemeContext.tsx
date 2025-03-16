@@ -59,6 +59,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.add(themeToApply);
       setResolvedTheme(themeToApply);
     }
+
+    // Force a re-render by toggling a class
+    root.classList.add("theme-applied");
+    setTimeout(() => {
+      root.classList.remove("theme-applied");
+    }, 0);
   };
 
   // Initialize theme from localStorage
@@ -68,10 +74,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try {
       const savedTheme = localStorage.getItem("theme") as Theme | null;
       if (savedTheme && ["light", "dark", "system"].includes(savedTheme)) {
+        console.log(`Initializing theme from localStorage: ${savedTheme}`);
         setThemeState(savedTheme);
         applyTheme(savedTheme);
       } else {
         // Default to system if no valid theme is found
+        console.log(
+          "No valid theme found in localStorage, defaulting to system"
+        );
         applyTheme("system");
       }
     } catch (e) {
@@ -83,23 +93,51 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
       if (theme === "system") {
+        console.log("System theme preference changed, updating theme");
         applyTheme("system");
       }
     };
 
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+    // Use the correct event listener method based on browser support
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleChange);
+    } else {
+      // For older browsers
+      mediaQuery.addListener(handleChange);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", handleChange);
+      } else {
+        // For older browsers
+        mediaQuery.removeListener(handleChange);
+      }
+    };
   }, []);
 
   // Re-apply theme when it changes
   useEffect(() => {
     if (mounted) {
+      console.log(`Theme changed to ${theme}, applying...`);
       applyTheme(theme);
     }
   }, [theme, mounted]);
 
+  // Provide a value that will cause consumers to re-render when the theme changes
+  const contextValue = {
+    theme,
+    setTheme,
+    resolvedTheme,
+  };
+
+  // If not mounted yet, render children without theme context to avoid hydration mismatch
+  if (!mounted) {
+    return <>{children}</>;
+  }
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );

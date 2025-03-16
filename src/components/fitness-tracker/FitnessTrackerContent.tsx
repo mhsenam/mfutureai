@@ -55,12 +55,14 @@ function WeightHistory({
   if (isLoading) {
     return (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-3 text-gray-900">
+        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
           Weight History
         </h3>
         <div className="text-center py-4 flex items-center justify-center">
-          <div className="inline-block h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-          <span>Loading your weight history...</span>
+          <div className="inline-block h-6 w-6 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+          <span className="text-gray-700 dark:text-gray-300">
+            Loading your weight history...
+          </span>
         </div>
       </div>
     );
@@ -69,10 +71,10 @@ function WeightHistory({
   if (error) {
     return (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-3 text-gray-900">
+        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
           Weight History
         </h3>
-        <div className="text-center py-4 text-red-500 bg-red-50 rounded-md p-2">
+        <div className="text-center py-4 text-red-500 bg-red-50 dark:bg-red-900/30 dark:text-red-300 rounded-md p-2">
           {error}
         </div>
       </div>
@@ -82,10 +84,10 @@ function WeightHistory({
   if (weightHistory.length === 0) {
     return (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-3 text-gray-900">
+        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
           Weight History
         </h3>
-        <div className="text-center py-4 text-gray-600 bg-gray-50 rounded-md p-2">
+        <div className="text-center py-4 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-dark-lighter/50 rounded-md p-2">
           No weight entries yet. Start tracking today!
         </div>
       </div>
@@ -94,34 +96,34 @@ function WeightHistory({
 
   return (
     <div className="mt-6">
-      <h3 className="text-lg font-semibold mb-3 text-gray-900">
+      <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
         Weight History
       </h3>
       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800">
+          <thead className="bg-gray-50 dark:bg-dark-lighter">
             <tr>
               <th
                 scope="col"
-                className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3"
+                className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/3"
               >
                 Date
               </th>
               <th
                 scope="col"
-                className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3"
+                className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/3"
               >
                 Weight (kg)
               </th>
               <th
                 scope="col"
-                className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3"
+                className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/3"
               >
                 Change
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-dark-primary divide-y divide-gray-200 dark:divide-gray-700">
             {weightHistory.map((entry, index) => {
               // Calculate weight change if not the first entry
               const prevEntry =
@@ -1276,6 +1278,11 @@ export default function FitnessTracker() {
               opacity: 0.1;
             }
 
+            :global(.dark) .dotted-pattern {
+              background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+              opacity: 0.05;
+            }
+
             .calendar-day {
               aspect-ratio: 1 / 1;
               display: flex;
@@ -1298,13 +1305,25 @@ export default function FitnessTracker() {
               background-color: rgba(59, 130, 246, 0.1);
             }
 
+            :global(.dark) .calendar-day:hover {
+              background-color: rgba(59, 130, 246, 0.3);
+            }
+
             .calendar-day.selected {
               background-color: rgba(59, 130, 246, 0.2);
               font-weight: bold;
             }
 
+            :global(.dark) .calendar-day.selected {
+              background-color: rgba(59, 130, 246, 0.4);
+            }
+
             .calendar-day.has-weight {
               border-bottom: 2px solid #3b82f6;
+            }
+
+            :global(.dark) .calendar-day.has-weight {
+              border-bottom: 2px solid #60a5fa;
             }
 
             .weight-value {
@@ -1315,15 +1334,24 @@ export default function FitnessTracker() {
               margin-top: 2px;
             }
 
+            :global(.dark) .weight-value {
+              color: #60a5fa;
+            }
+
             @media (min-width: 640px) {
               .weight-value {
-                font-size: 0.7rem;
+                font-size: 1rem;
               }
             }
 
             /* Improve placeholder color for better readability */
             ::placeholder {
               color: #495057;
+              opacity: 1;
+            }
+
+            :global(.dark) ::placeholder {
+              color: #94a3b8;
               opacity: 1;
             }
 
@@ -1358,18 +1386,18 @@ export default function FitnessTracker() {
           `}</style>
 
           {/* Header */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 sm:p-8 shadow-lg w-full max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl mb-6">
+          <div className="bg-white/80 dark:bg-dark-primary backdrop-blur-sm rounded-2xl p-6 sm:p-8 shadow-lg w-full max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl mb-6">
             <div className="flex justify-between items-center mb-4">
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100">
                 Fitness Tracker
               </h1>
               <div className="flex items-center gap-4">
-                <div className="hidden sm:block text-sm text-gray-600">
+                <div className="hidden sm:block text-sm text-gray-600 dark:text-gray-400">
                   {currentUser.email}
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 flex items-center gap-1"
                   aria-label="Sign out"
                 >
                   <FaSignOutAlt />{" "}
@@ -1377,43 +1405,39 @@ export default function FitnessTracker() {
                 </button>
                 <Link
                   href="/"
-                  className="text-blue-600 hover:text-blue-800 text-sm md:text-base"
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm md:text-base"
                 >
                   Home
                 </Link>
               </div>
             </div>
-            <p className="text-sm md:text-base text-gray-900 mb-4 sm:mb-6 text-center">
+            <p className="text-sm md:text-base text-gray-900 dark:text-gray-300 mb-4 sm:mb-6 text-center">
               Track your workouts and monitor your fitness progress over time.
             </p>
           </div>
 
           {/* Tabs */}
           <div className="w-full max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl mb-6">
-            <div className="flex border-b border-gray-200">
+            <div className="flex border-b border-gray-200 dark:border-gray-700">
               <button
                 className={`py-2 px-4 font-medium text-sm sm:text-base ${
                   activeTab === "workouts"
-                    ? "border-b-2 border-blue-600 text-blue-700"
-                    : "text-gray-700 hover:text-gray-900"
+                    ? "border-b-2 border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
+                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                 }`}
                 onClick={() => setActiveTab("workouts")}
               >
-                <span className="flex items-center gap-2">
-                  <FaDumbbell /> Workouts
-                </span>
+                Workouts
               </button>
               <button
                 className={`py-2 px-4 font-medium text-sm sm:text-base ${
                   activeTab === "weight"
-                    ? "border-b-2 border-blue-600 text-blue-600"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "border-b-2 border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
+                    : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                 }`}
                 onClick={() => setActiveTab("weight")}
               >
-                <span className="flex items-center gap-2">
-                  <FaWeight /> Weight Tracker
-                </span>
+                Weight Tracker
               </button>
             </div>
           </div>
@@ -1620,14 +1644,14 @@ export default function FitnessTracker() {
             ) : (
               <>
                 {/* Weight Tracker */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+                <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-6 mb-6">
                   <div className="flex justify-between items-center mb-5">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                       Weight Calendar
                     </h2>
 
                     {weightTrend && (
-                      <div className="text-sm text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
+                      <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-dark-lighter px-3 py-1 rounded-full">
                         You have {weightTrend.direction}{" "}
                         {Math.abs(parseFloat(weightTrend.totalChange))}kg over{" "}
                         {weightTrend.period}
@@ -1640,17 +1664,17 @@ export default function FitnessTracker() {
                     <div className="flex items-center">
                       <button
                         onClick={prevMonth}
-                        className="p-2 text-gray-600 hover:text-gray-900"
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                         aria-label="Previous month"
                       >
                         <FaChevronLeft />
                       </button>
-                      <h3 className="text-lg font-medium text-gray-900 mx-2">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mx-2">
                         {formatMonthYear(currentMonth)}
                       </h3>
                       <button
                         onClick={nextMonth}
-                        className="p-2 text-gray-600 hover:text-gray-900"
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                         aria-label="Next month"
                       >
                         <FaChevronRight />
@@ -1660,7 +1684,7 @@ export default function FitnessTracker() {
                     {/* Today button */}
                     <button
                       onClick={goToToday}
-                      className="flex items-center gap-1 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 transition-colors"
+                      className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800/60 transition-colors"
                     >
                       <FaCalendarDay /> Today
                     </button>
@@ -1682,7 +1706,7 @@ export default function FitnessTracker() {
                         (day) => (
                           <div
                             key={day}
-                            className="text-center text-xs sm:text-sm font-medium text-gray-700 py-1"
+                            className="text-center text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 py-1"
                           >
                             {/* Show abbreviated day names on small screens */}
                             <span className="hidden sm:inline">{day}</span>
@@ -1716,19 +1740,19 @@ export default function FitnessTracker() {
                         return (
                           <div
                             key={`day-${day}`}
-                            className={`calendar-day border border-gray-300 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden p-0.5 sm:p-1.5
+                            className={`calendar-day border border-gray-300 dark:border-gray-700 rounded-md cursor-pointer transition-all duration-200 relative overflow-hidden p-0.5 sm:p-1.5
                               ${
                                 isSelected
-                                  ? "selected bg-blue-100 dark:bg-blue-900/50 border-blue-400"
+                                  ? "selected bg-blue-100 dark:bg-blue-900/70 border-blue-400 dark:border-blue-600"
                                   : ""
                               }
                               ${weight ? "has-weight" : ""}
                               ${
                                 isToday
-                                  ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800"
+                                  ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-dark-primary"
                                   : ""
                               }
-                              hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-400 dark:border-gray-600
+                              ${isLongPressing ? "animate-pulse" : ""}
                             `}
                             onClick={() => handleDateClick(day)}
                             onMouseDown={() => handleDayMouseDown(day)}
@@ -1766,7 +1790,7 @@ export default function FitnessTracker() {
                   </div>
 
                   {/* Weight Entry Form - make it wider and more mobile-friendly */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6 md:p-8 mb-6 w-full">
+                  <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-4 sm:p-6 md:p-8 mb-6 w-full">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
                       Record Weight for{" "}
                       <span className="text-blue-600 dark:text-blue-400">
@@ -1777,88 +1801,80 @@ export default function FitnessTracker() {
                         })}
                       </span>
                     </h3>
+
                     <form onSubmit={handleWeightSubmit} className="space-y-4">
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="flex-grow">
+                      <div>
+                        <label
+                          htmlFor="weight"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
+                          Weight (kg)
+                        </label>
+                        <div className="relative">
                           <input
                             type="number"
-                            step="0.1"
+                            id="weight"
+                            name="weight"
                             min="20"
-                            max="300"
+                            max="500"
+                            step="0.1"
                             value={weightInput}
                             onChange={(e) => setWeightInput(e.target.value)}
-                            placeholder="Enter weight in kg"
-                            className="w-full px-4 py-3 sm:py-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-base"
+                            className="w-full p-3 sm:p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-gray-100"
+                            placeholder="Enter your weight in kg"
                             required
-                            disabled={isSaving || !firebaseReady}
                           />
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="submit"
-                            className={`px-4 sm:px-6 py-3 sm:py-4 rounded-lg transition-colors flex items-center justify-center flex-1 sm:flex-auto ${
-                              isSaving || !firebaseReady
-                                ? "bg-gray-400 cursor-not-allowed"
-                                : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow"
-                            }`}
-                            disabled={isSaving || !firebaseReady}
-                          >
-                            {isSaving ? (
-                              <>
-                                <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                Saving...
-                              </>
-                            ) : !firebaseReady ? (
-                              "Firebase Initializing..."
-                            ) : (
-                              "Save"
-                            )}
-                          </button>
-
-                          {/* Improved Cancel button */}
-                          {isSaving && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsSaving(false);
-                                setError(
-                                  "Save operation was cancelled. Please try again."
-                                );
-                              }}
-                              className="px-4 py-3 sm:py-4 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          )}
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <span className="text-gray-500 dark:text-gray-400">
+                              kg
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      {error && (
-                        <div className="text-red-500 text-sm bg-red-50 dark:bg-red-900/20 p-4 rounded-lg mt-4">
-                          {error}
-                        </div>
-                      )}
-                      {successMessage && (
-                        <div className="text-green-500 text-sm bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mt-4 flex items-center">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 mr-2 flex-shrink-0"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
+
+                      <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                        <button
+                          type="submit"
+                          className={`px-4 py-3 sm:py-4 rounded-lg transition-colors flex items-center justify-center ${
+                            isSaving || !firebaseReady
+                              ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                              : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white shadow-sm hover:shadow"
+                          }`}
+                          disabled={isSaving || !firebaseReady}
+                        >
+                          {isSaving ? (
+                            <>
+                              <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                              Saving...
+                            </>
+                          ) : !firebaseReady ? (
+                            "Firebase Initializing..."
+                          ) : (
+                            "Save"
+                          )}
+                        </button>
+
+                        {/* Improved Cancel button */}
+                        {isSaving && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsSaving(false);
+                              setError(
+                                "Save operation was cancelled. Please try again."
+                              );
+                            }}
+                            className="px-4 py-3 sm:py-4 rounded-lg bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white shadow-sm transition-colors"
                           >
-                            <path
-                              fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          {successMessage}
-                        </div>
-                      )}
+                            Cancel
+                          </button>
+                        )}
+                      </div>
                     </form>
                   </div>
 
                   {/* Weight History - make it wider */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 sm:p-8 w-full">
+                  <div className="bg-white dark:bg-dark-primary rounded-xl shadow-md p-6 sm:p-8 w-full">
                     <div className="flex justify-between items-center mb-5">
                       <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
                         Weight History
@@ -1866,7 +1882,7 @@ export default function FitnessTracker() {
                       <button
                         onClick={manualRefresh}
                         disabled={isFetching}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/40 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/60 transition-colors"
                       >
                         {isFetching ? (
                           <>
@@ -1958,11 +1974,11 @@ export default function FitnessTracker() {
         </main>
 
         {/* Footer */}
-        <footer className="w-full py-3 sm:py-4 bg-gray-100/80 backdrop-blur-sm border-t border-gray-200 mt-auto relative z-10">
+        <footer className="w-full py-3 sm:py-4 bg-gray-100/80 dark:bg-dark-primary backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 mt-auto relative z-10">
           <div className="container mx-auto px-4 max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl">
             <div className="flex flex-col items-center justify-center">
-              <p className="text-xs sm:text-sm text-gray-600 text-center">
-                © {new Date().getFullYear()} MFuture AI. All rights reserved.
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
+                © {new Date().getFullYear()} FitAmIn. All rights reserved.
               </p>
             </div>
           </div>
@@ -2012,7 +2028,7 @@ export default function FitnessTracker() {
             onClick={() => setShowModal(false)} // Close when clicking outside
           >
             <div
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-8 relative animate-fadeIn"
+              className="bg-white dark:bg-dark-primary rounded-xl shadow-xl max-w-md w-full p-8 relative animate-fadeIn"
               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
             >
               <button
@@ -2065,7 +2081,7 @@ export default function FitnessTracker() {
                     step="0.1"
                     min="20"
                     max="300"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     required
                     autoFocus
                   />
@@ -2076,7 +2092,7 @@ export default function FitnessTracker() {
                     <button
                       type="button"
                       onClick={() => setShowModal(false)}
-                      className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+                      className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-lighter/70 transition-colors font-medium"
                     >
                       Close
                     </button>
@@ -2086,8 +2102,8 @@ export default function FitnessTracker() {
                     type="submit"
                     className={`px-5 py-2.5 rounded-lg transition-colors font-medium ${
                       isSaving
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow"
+                        ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white shadow-sm hover:shadow"
                     }`}
                     disabled={isSaving}
                   >
@@ -2111,7 +2127,7 @@ export default function FitnessTracker() {
                           "Save operation was cancelled. Please try again."
                         );
                       }}
-                      className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors font-medium"
+                      className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white shadow-sm transition-colors font-medium"
                     >
                       Cancel
                     </button>
@@ -2119,13 +2135,13 @@ export default function FitnessTracker() {
                 </div>
 
                 {error && (
-                  <div className="text-red-500 text-sm bg-red-50 dark:bg-red-900/20 p-4 rounded-lg mt-4">
+                  <div className="text-red-500 dark:text-red-300 text-sm bg-red-50 dark:bg-red-900/30 p-4 rounded-lg mt-4">
                     {error}
                   </div>
                 )}
 
                 {successMessage && (
-                  <div className="text-green-500 text-sm bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mt-4 flex items-center">
+                  <div className="text-green-500 dark:text-green-300 text-sm bg-green-50 dark:bg-green-900/30 p-4 rounded-lg mt-4 flex items-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       className="h-5 w-5 mr-2 flex-shrink-0"

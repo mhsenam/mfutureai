@@ -1,4 +1,4 @@
-# MFuture AI Fitness Tracker
+# FitAmIn Fitness Tracker
 
 A modern fitness tracking application built with Next.js, Firebase, and Tailwind CSS.
 
