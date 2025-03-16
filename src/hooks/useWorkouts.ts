@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { collection, addDoc, setDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, setDoc, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 
