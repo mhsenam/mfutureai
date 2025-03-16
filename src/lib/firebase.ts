@@ -5,7 +5,7 @@ import {
   enableIndexedDbPersistence,
   connectFirestoreEmulator,
 } from "firebase/firestore";
-
+// 
 // Your Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCA06jo0H8Wu0xSAALuACyE_KPi3Fymddo",

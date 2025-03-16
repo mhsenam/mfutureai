@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -36,11 +42,16 @@ export function useFirebaseData() {
 
   useEffect(() => {
     if (!currentUser) {
-      setState(prev => ({ ...prev, weightEntries: [], workouts: [], isLoading: false }));
+      setState((prev) => ({
+        ...prev,
+        weightEntries: [],
+        workouts: [],
+        isLoading: false,
+      }));
       return;
     }
 
-    setState(prev => ({ ...prev, isLoading: true }));
+    setState((prev) => ({ ...prev, isLoading: true }));
 
     // Set up real-time listeners for workouts
     const workoutsRef = collection(db, "workouts");
@@ -57,7 +68,8 @@ export function useFirebaseData() {
       orderBy("timestamp", "desc")
     );
 
-    const unsubscribeWorkouts = onSnapshot(workoutsQuery, 
+    const unsubscribeWorkouts = onSnapshot(
+      workoutsQuery,
       (snapshot) => {
         const workoutData: WorkoutEntry[] = [];
         snapshot.forEach((doc) => {
@@ -71,15 +83,16 @@ export function useFirebaseData() {
             notes: data.notes,
           });
         });
-        setState(prev => ({ ...prev, workouts: workoutData }));
+        setState((prev) => ({ ...prev, workouts: workoutData }));
       },
       (error) => {
         console.error("Error fetching workouts:", error);
-        setState(prev => ({ ...prev, error: error.message }));
+        setState((prev) => ({ ...prev, error: error.message }));
       }
     );
 
-    const unsubscribeWeights = onSnapshot(weightsQuery,
+    const unsubscribeWeights = onSnapshot(
+      weightsQuery,
       (snapshot) => {
         const weightData: WeightEntry[] = [];
         snapshot.forEach((doc) => {
@@ -90,19 +103,19 @@ export function useFirebaseData() {
             date: data.date,
           });
         });
-        setState(prev => ({ 
-          ...prev, 
+        setState((prev) => ({
+          ...prev,
           weightEntries: weightData,
           isLoading: false,
-          error: null 
+          error: null,
         }));
       },
       (error) => {
         console.error("Error fetching weights:", error);
-        setState(prev => ({ 
-          ...prev, 
+        setState((prev) => ({
+          ...prev,
           error: error.message,
-          isLoading: false 
+          isLoading: false,
         }));
       }
     );
@@ -114,4 +127,4 @@ export function useFirebaseData() {
   }, [currentUser]);
 
   return state;
-} 
+}
