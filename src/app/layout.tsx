@@ -1,9 +1,9 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
-import Navbar from "@/components/Navbar";
+import { AuthProvider } from "../contexts/AuthContext";
+import { ThemeProvider } from "../contexts/ThemeContext";
+import Navbar from "../components/Navbar";
 import { Analytics } from "@vercel/analytics/react";
 import Script from "next/script";
 import { Toaster } from "react-hot-toast";

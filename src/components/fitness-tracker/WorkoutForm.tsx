@@ -1,5 +1,5 @@
 import React from "react";
-import { useWorkouts } from "@/hooks/useWorkouts";
+import { useWorkouts } from "../../hooks/useWorkouts";
 
 export default function WorkoutForm() {
   const { showForm, formData, handleInputChange, saveWorkout, editingId } =

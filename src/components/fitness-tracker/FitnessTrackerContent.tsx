@@ -21,8 +21,8 @@ import {
   FaCalendarDay,
   FaSignOutAlt,
 } from "react-icons/fa";
-import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
+import { useAuth } from "../../contexts/AuthContext";
+import { db } from "../../lib/firebase";
 import {
   collection,
   doc,
@@ -1318,6 +1318,7 @@ export default function FitnessTrackerContent() {
             setPills(pillData);
           });
         }
+        return undefined; // Add a return value for all code paths
       }
     );
 
@@ -1507,7 +1508,7 @@ export default function FitnessTrackerContent() {
 
   // Add a function to fetch the user's Telegram bots
   const fetchTelegramBots = async () => {
-    if (!currentUser) return;
+    if (!currentUser) return undefined;
 
     try {
       // Get the user's Telegram bots from Firestore
@@ -1530,6 +1531,7 @@ export default function FitnessTrackerContent() {
     } catch (error) {
       console.error("Error fetching Telegram bots:", error);
       toast.error("Failed to load Telegram bots");
+      return undefined; // Add a return value for all code paths
     }
   };
 

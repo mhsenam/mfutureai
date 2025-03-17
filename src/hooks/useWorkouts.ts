@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { collection, setDoc, deleteDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { useAuth } from "@/contexts/AuthContext";
+import { db } from "../lib/firebase";
+import { useAuth } from "../contexts/AuthContext";
 
 type WorkoutType = "strength" | "cardio" | "flexibility";
 
@@ -46,20 +46,17 @@ export function useWorkouts() {
     setShowForm(false);
   }, []);
 
-  const handleInputChange = useCallback(
-    (
-      e: React.ChangeEvent<
-        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-      >
-    ) => {
-      const { name, value } = e.target;
-      setFormData((prev) => ({
-        ...prev,
-        [name]: name === "duration" ? parseInt(value) || 0 : value,
-      }));
-    },
-    []
-  );
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target as { name: string; value: string };
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
 
   const saveWorkout = useCallback(async () => {
     if (!currentUser) return false;

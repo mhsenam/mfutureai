@@ -6,8 +6,8 @@ import {
   onSnapshot,
   orderBy,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { useAuth } from "@/contexts/AuthContext";
+import { db } from "../lib/firebase";
+import { useAuth } from "../contexts/AuthContext";
 
 interface WeightEntry {
   id: string;

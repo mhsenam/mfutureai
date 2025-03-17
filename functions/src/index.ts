@@ -1,4 +1,4 @@
-import { sendPillReminders } from "./sendPillReminders";
+import { sendPillReminders, telegramWebhook } from "./sendPillReminders";
 
 // Export all functions
-export { sendPillReminders };
+export { sendPillReminders, telegramWebhook };

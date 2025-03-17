@@ -6,7 +6,7 @@ import {
   FaRunning,
   FaHeartbeat,
 } from "react-icons/fa";
-import { useWorkouts } from "@/hooks/useWorkouts";
+import { useWorkouts } from "../../hooks/useWorkouts";
 
 interface WorkoutEntry {
   id: string;

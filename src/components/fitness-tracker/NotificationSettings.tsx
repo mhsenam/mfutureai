@@ -33,12 +33,12 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
 
   const handleConnect = () => {
     if (!botToken.trim()) {
-      alert("Please enter a bot token");
+      console.error("Please enter a bot token");
       return;
     }
 
     if (!botName.trim()) {
-      alert("Please enter a bot name");
+      console.error("Please enter a bot name");
       return;
     }
 
@@ -101,7 +101,9 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
               id="notificationEmail"
               name="notificationEmail"
               value={notificationEmail}
-              onChange={(e) => setNotificationEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setNotificationEmail(e.target.value)
+              }
             />
 
             {/* Telegram Notification */}
@@ -193,7 +195,9 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                       id="botName"
                       name="botName"
                       value={botName}
-                      onChange={(e) => setBotName(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setBotName(e.target.value)
+                      }
                       placeholder="Enter your bot name (e.g. MyFitnessBotName)"
                       className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     />
@@ -211,7 +215,9 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                       id="botToken"
                       name="botToken"
                       value={botToken}
-                      onChange={(e) => setBotToken(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setBotToken(e.target.value)
+                      }
                       placeholder="Enter your Telegram bot token"
                       className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     />
