@@ -6,7 +6,7 @@ declare const process: {
   };
 };
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -234,6 +234,196 @@ interface TelegramBot {
   isActive: boolean;
 }
 
+// Add this new interface for pill history
+interface PillHistoryEntry {
+  id: string;
+  pillId: string;
+  userId: string;
+  action: "taken" | "skip" | "snooze";
+  timestamp: { toDate: () => Date } | null; // Firestore timestamp
+  telegramUserId?: string;
+}
+
+// Add this new component
+function PillHistoryComponent({
+  pillHistory,
+  pills,
+  isLoading,
+}: {
+  pillHistory: PillHistoryEntry[];
+  pills: PillReminder[];
+  isLoading: boolean;
+}) {
+  // Create a map of pill IDs to names for easy lookup
+  const pillMap = new Map(pills.map((pill) => [pill.id, pill.name]));
+
+  // Group history by date
+  const historyByDate = pillHistory.reduce((acc, entry) => {
+    // Convert Firestore timestamp to Date
+    const date = entry.timestamp?.toDate
+      ? entry.timestamp.toDate()
+      : new Date();
+    const dateStr = date.toISOString().split("T")[0];
+
+    if (!acc[dateStr]) {
+      acc[dateStr] = [];
+    }
+
+    acc[dateStr].push(entry);
+    return acc;
+  }, {} as Record<string, PillHistoryEntry[]>);
+
+  // Sort dates in reverse chronological order
+  const sortedDates = Object.keys(historyByDate).sort((a, b) =>
+    b.localeCompare(a)
+  );
+
+  if (isLoading) {
+    return (
+      <div className="p-4 text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">
+          Loading pill history...
+        </p>
+      </div>
+    );
+  }
+
+  if (pillHistory.length === 0) {
+    return (
+      <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg">
+        <p className="text-gray-600 dark:text-gray-400">
+          No pill history available yet.
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+          Your medication history will appear here once you start taking your
+          pills.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        Medication History
+      </h3>
+
+      {sortedDates.map((dateStr) => (
+        <div
+          key={dateStr}
+          className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+        >
+          <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+            <h4 className="font-medium text-gray-700 dark:text-gray-300">
+              {new Date(dateStr).toLocaleDateString(undefined, {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </h4>
+          </div>
+
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {historyByDate[dateStr].map((entry) => (
+              <div
+                key={entry.id}
+                className="px-4 py-3 flex items-center justify-between"
+              >
+                <div className="flex items-center">
+                  {entry.action === "taken" && (
+                    <span className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mr-3">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-green-600 dark:text-green-400"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                  )}
+                  {entry.action === "skip" && (
+                    <span className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mr-3">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-orange-600 dark:text-orange-400"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10.293 15.707a1 1 0 010-1.414L14.586 10l-4.293-4.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                  )}
+                  {entry.action === "snooze" && (
+                    <span className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-blue-600 dark:text-blue-400"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                  )}
+
+                  <div>
+                    <p className="font-medium text-gray-800 dark:text-gray-200">
+                      {pillMap.get(entry.pillId) || "Unknown Medication"}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {entry.timestamp?.toDate
+                        ? entry.timestamp
+                            .toDate()
+                            .toLocaleTimeString(undefined, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                        : "Unknown time"}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <span
+                    className={`text-sm px-2 py-1 rounded-full ${
+                      entry.action === "taken"
+                        ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400"
+                        : entry.action === "skip"
+                        ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400"
+                        : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400"
+                    }`}
+                  >
+                    {entry.action === "taken"
+                      ? "Taken"
+                      : entry.action === "skip"
+                      ? "Skipped"
+                      : "Snoozed"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function FitnessTrackerContent() {
   const { currentUser, logout } = useAuth();
   const router = useRouter();
@@ -345,6 +535,10 @@ export default function FitnessTrackerContent() {
   // Add state for Telegram bot history
   const [telegramBots, setTelegramBots] = useState<TelegramBot[]>([]);
   const [showBotHistory, setShowBotHistory] = useState(false);
+
+  // Add these new state variables for pill history
+  const [pillHistory, setPillHistory] = useState<PillHistoryEntry[]>([]);
+  const [isPillHistoryLoading, setIsPillHistoryLoading] = useState(false);
 
   // Effect to handle auth state changes
   useEffect(() => {
@@ -1877,6 +2071,73 @@ export default function FitnessTrackerContent() {
     setShowBotHistory(!showBotHistory);
   };
 
+  // Add a function to fetch pill history
+  const fetchPillHistory = useCallback(async () => {
+    if (!currentUser) return;
+
+    setIsPillHistoryLoading(true);
+
+    try {
+      const historyRef = collection(db, "pillHistory");
+      const historyQuery = query(
+        historyRef,
+        where("userId", "==", currentUser.uid),
+        orderBy("timestamp", "desc")
+      );
+
+      const snapshot = await getDocs(historyQuery);
+      const historyData: PillHistoryEntry[] = [];
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        historyData.push({
+          id: doc.id,
+          pillId: data.pillId,
+          userId: data.userId,
+          action: data.action,
+          timestamp: data.timestamp,
+          telegramUserId: data.telegramUserId,
+        });
+      });
+
+      setPillHistory(historyData);
+    } catch (error) {
+      console.error("Error fetching pill history:", error);
+    } finally {
+      setIsPillHistoryLoading(false);
+    }
+  }, [currentUser]);
+
+  // Fetch pill history when the component mounts or user changes
+  useEffect(() => {
+    fetchPillHistory();
+  }, [currentUser, fetchPillHistory]);
+
+  // Add a function to mark a pill as taken directly from the UI
+  const markPillAsTaken = async (pillId: string) => {
+    if (!currentUser) return;
+
+    try {
+      // Create a history entry
+      const historyRef = collection(db, "pillHistory");
+      await addDoc(historyRef, {
+        pillId: pillId,
+        userId: currentUser.uid,
+        action: "taken",
+        timestamp: Timestamp.now(),
+      });
+
+      // Show success message
+      toast.success("Pill marked as taken!");
+
+      // Refresh the pill history
+      fetchPillHistory();
+    } catch (error) {
+      console.error("Error marking pill as taken:", error);
+      toast.error("Failed to mark pill as taken");
+    }
+  };
+
   // If still loading or not logged in show loading state
   if (!currentUser || isInitialLoading) {
     return (
@@ -2778,6 +3039,25 @@ export default function FitnessTrackerContent() {
                                   </div>
                                   <div className="flex gap-2">
                                     <button
+                                      onClick={() => markPillAsTaken(pill.id)}
+                                      className="text-green-700 hover:text-green-900 p-1"
+                                      aria-label="Mark pill as taken"
+                                      title="Mark as taken"
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <button
                                       onClick={() => handlePillEdit(pill)}
                                       className="text-blue-700 hover:text-blue-900 p-1"
                                       aria-label="Edit pill"
@@ -2797,6 +3077,15 @@ export default function FitnessTrackerContent() {
                             ))}
                           </div>
                         )}
+                      </div>
+
+                      {/* Pill History Section */}
+                      <div className="mt-8">
+                        <PillHistoryComponent
+                          pillHistory={pillHistory}
+                          pills={pills}
+                          isLoading={isPillHistoryLoading}
+                        />
                       </div>
 
                       {/* Add/Edit Pill Form */}
