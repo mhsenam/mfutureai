@@ -242,6 +242,30 @@ export default function FitnessTrackerContent() {
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const retryTimer = useRef<NodeJS.Timeout | null>(null);
 
+  // Store all active Firebase listeners
+  const activeListeners = useRef<Array<() => void>>([]);
+
+  // Function to register a listener for cleanup
+  const registerListener = (unsubscribe: () => void) => {
+    activeListeners.current.push(unsubscribe);
+    return unsubscribe;
+  };
+
+  // Function to unsubscribe all listeners
+  const unsubscribeAllListeners = () => {
+    console.log(
+      `Cleaning up ${activeListeners.current.length} active Firebase listeners`
+    );
+    activeListeners.current.forEach((unsubscribe) => {
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.error("Error unsubscribing listener:", error);
+      }
+    });
+    activeListeners.current = [];
+  };
+
   // State for workout entries
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
 
@@ -322,6 +346,15 @@ export default function FitnessTrackerContent() {
   const [telegramBots, setTelegramBots] = useState<TelegramBot[]>([]);
   const [showBotHistory, setShowBotHistory] = useState(false);
 
+  // Effect to handle auth state changes
+  useEffect(() => {
+    if (!currentUser) {
+      // User has logged out, clean up listeners
+      console.log("User logged out, cleaning up listeners");
+      unsubscribeAllListeners();
+    }
+  }, [currentUser]);
+
   // Redirect if not logged in
   useEffect(() => {
     if (!currentUser && !isInitialLoading) {
@@ -348,21 +381,23 @@ export default function FitnessTrackerContent() {
       where("userId", "==", currentUser.uid)
     );
 
-    const unsubscribeWorkouts = onSnapshot(workoutsQuery, (snapshot) => {
-      const workoutData: WorkoutEntry[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        workoutData.push({
-          id: doc.id,
-          date: data.date,
-          type: data.type as WorkoutType,
-          name: data.name,
-          duration: data.duration,
-          notes: data.notes,
+    const unsubscribeWorkouts = registerListener(
+      onSnapshot(workoutsQuery, (snapshot) => {
+        const workoutData: WorkoutEntry[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          workoutData.push({
+            id: doc.id,
+            date: data.date,
+            type: data.type as WorkoutType,
+            name: data.name,
+            duration: data.duration,
+            notes: data.notes,
+          });
         });
-      });
-      setWorkouts(workoutData);
-    });
+        setWorkouts(workoutData);
+      })
+    );
 
     // Set up real-time listeners for weight entries
     const weightsRef = collection(db, "weightEntries");
@@ -371,21 +406,25 @@ export default function FitnessTrackerContent() {
       where("userId", "==", currentUser.uid)
     );
 
-    const unsubscribeWeights = onSnapshot(weightsQuery, (snapshot) => {
-      const weightData: WeightEntry[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        weightData.push({
-          id: doc.id,
-          weight: data.weight,
-          date: data.date,
+    const unsubscribeWeights = registerListener(
+      onSnapshot(weightsQuery, (snapshot) => {
+        const weightData: WeightEntry[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          weightData.push({
+            id: doc.id,
+            weight: data.weight,
+            date: data.date,
+          });
         });
-      });
-      setWeightEntries(weightData);
-      setIsInitialLoading(false);
-    });
+        setWeightEntries(weightData);
+        setIsInitialLoading(false);
+      })
+    );
 
     return () => {
+      // We don't need to explicitly call these anymore as they're registered
+      // in activeListeners and will be cleaned up in unsubscribeAllListeners
       unsubscribeWorkouts();
       unsubscribeWeights();
     };
@@ -437,75 +476,77 @@ export default function FitnessTrackerContent() {
           orderBy("timestamp", "desc")
         );
 
-        unsubscribe = onSnapshot(
-          q,
-          (snapshot) => {
-            console.log(
-              "Real-time update received, snapshot size:",
-              snapshot.size
-            );
-
-            const weightData: WeightEntry[] = [];
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              try {
-                weightData.push({
-                  id: doc.id,
-                  weight: parseFloat(data.weight) || 0,
-                  date: data.date || "Unknown date",
-                });
-              } catch (err) {
-                console.error(
-                  "Error parsing weight entry in real-time update:",
-                  err,
-                  data
-                );
-              }
-            });
-
-            console.log(
-              "Updated weight entries from real-time listener:",
-              weightData.length
-            );
-            setWeightEntries(weightData);
-            setIsInitialLoading(false);
-
-            // Reset retry count on successful update
-            retryCount = 0;
-          },
-          (error) => {
-            console.error("Error in real-time listener:", error);
-
-            // If we have network issues, try to recover
-            if (retryCount < maxRetries) {
-              retryCount++;
+        unsubscribe = registerListener(
+          onSnapshot(
+            q,
+            (snapshot) => {
               console.log(
-                `Listener error, retrying (${retryCount}/${maxRetries}) in ${
-                  retryDelay / 1000
-                }s...`
+                "Real-time update received, snapshot size:",
+                snapshot.size
               );
 
-              // Clean up the current listener
-              if (unsubscribe) {
-                unsubscribe();
-                unsubscribe = null;
-              }
-
-              // Try to reset the Firebase connection
-              handleFirebaseConnectionIssue().then(() => {
-                // Set a timeout before retrying
-                setTimeout(setupListener, retryDelay);
+              const weightData: WeightEntry[] = [];
+              snapshot.forEach((doc) => {
+                const data = doc.data();
+                try {
+                  weightData.push({
+                    id: doc.id,
+                    weight: parseFloat(data.weight) || 0,
+                    date: data.date || "Unknown date",
+                  });
+                } catch (err) {
+                  console.error(
+                    "Error parsing weight entry in real-time update:",
+                    err,
+                    data
+                  );
+                }
               });
-            } else {
+
               console.log(
-                "Max retries exceeded, falling back to manual fetching"
+                "Updated weight entries from real-time listener:",
+                weightData.length
               );
-              setError(
-                `Real-time updates unavailable: ${error.message}. Using manual updates instead.`
-              );
+              setWeightEntries(weightData);
               setIsInitialLoading(false);
+
+              // Reset retry count on successful update
+              retryCount = 0;
+            },
+            (error) => {
+              console.error("Error in real-time listener:", error);
+
+              // If we have network issues, try to recover
+              if (retryCount < maxRetries) {
+                retryCount++;
+                console.log(
+                  `Listener error, retrying (${retryCount}/${maxRetries}) in ${
+                    retryDelay / 1000
+                  }s...`
+                );
+
+                // Clean up the current listener
+                if (unsubscribe) {
+                  unsubscribe();
+                  unsubscribe = null;
+                }
+
+                // Try to reset the Firebase connection
+                handleFirebaseConnectionIssue().then(() => {
+                  // Set a timeout before retrying
+                  setTimeout(setupListener, retryDelay);
+                });
+              } else {
+                console.log(
+                  "Max retries exceeded, falling back to manual fetching"
+                );
+                setError(
+                  `Real-time updates unavailable: ${error.message}. Using manual updates instead.`
+                );
+                setIsInitialLoading(false);
+              }
             }
-          }
+          )
         );
       } catch (err) {
         console.error("Failed to set up real-time listener:", err);
@@ -526,6 +567,7 @@ export default function FitnessTrackerContent() {
 
     // Clean up function
     return () => {
+      // We can call unsubscribe here or let unsubscribeAllListeners handle it
       if (unsubscribe) {
         console.log("Cleaning up real-time listener");
         unsubscribe();
@@ -668,11 +710,8 @@ export default function FitnessTrackerContent() {
     }, 10000); // 10 seconds timeout
 
     try {
-      // First, test the connection
-      const connectionOk = await debugFirebaseConnection();
-      if (!connectionOk) {
-        throw new Error("Firebase connection test failed");
-      }
+      // Remove the connection test as it's causing issues
+      // Just proceed with saving directly like in handleModalSubmit
 
       console.log("Saving weight entry:", {
         weight: weightValue,
@@ -727,6 +766,16 @@ export default function FitnessTrackerContent() {
             ". Firebase service is currently unavailable. Please check your internet connection.";
         } else if (err.message.includes("not-found")) {
           errorMessage += ". The specified database path does not exist.";
+        } else if (err.message.includes("network-request-failed")) {
+          errorMessage +=
+            ". Network error. Please check your internet connection.";
+
+          // Try to reset the connection
+          handleFirebaseConnectionIssue().then(() => {
+            console.log(
+              "Attempted to reset Firebase connection after network error"
+            );
+          });
         }
       } else {
         errorMessage += "Unknown error";
@@ -743,7 +792,14 @@ export default function FitnessTrackerContent() {
   // Handle logout
   const handleLogout = async () => {
     try {
-      // First disable all Firebase network connections to prevent permission errors
+      // First clean up all Firebase listeners
+      console.log("Cleaning up Firebase listeners before logout");
+      unsubscribeAllListeners();
+
+      // Short delay to ensure listeners are cleaned up
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Then disable all Firebase network connections to prevent permission errors
       console.log("Disabling Firebase network connections before logout");
       await disableNetwork(db);
 
@@ -1178,6 +1234,10 @@ export default function FitnessTrackerContent() {
   // Clean up the interval on component unmount
   useEffect(() => {
     return () => {
+      // Clean up all Firebase listeners
+      unsubscribeAllListeners();
+
+      // Clean up timers
       if (longPressTimer.current) {
         clearInterval(longPressTimer.current);
       }
@@ -1275,71 +1335,73 @@ export default function FitnessTrackerContent() {
       pillsQuery = query(pillsRef, where("userId", "==", currentUser.uid));
     }
 
-    const unsubscribePills = onSnapshot(
-      pillsQuery,
-      (snapshot) => {
-        const pillData: PillReminder[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          pillData.push({
-            id: doc.id,
-            name: data.name,
-            frequency: data.frequency,
-            time: data.time,
-            daysOfWeek: data.daysOfWeek || [],
-            specificDate: data.specificDate,
-            userId: data.userId,
-            createdAt: data.createdAt,
-            notificationEmail: data.notificationEmail,
-            sendNotifications: data.sendNotifications,
-            telegramChatId: data.telegramChatId,
-            useTelegramNotifications: data.useTelegramNotifications,
-          });
-        });
-        // Sort manually if we're using the fallback query
-        if (!pillsQuery.toString().includes("orderBy")) {
-          pillData.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        }
-        setPills(pillData);
-      },
-      (error) => {
-        console.error("Error fetching pill reminders:", error);
-        // If we get an index error, retry with the basic query
-        if (
-          error.code === "failed-precondition" ||
-          error.code === "resource-exhausted"
-        ) {
-          console.warn("Retrying with basic query due to index error");
-          const basicQuery = query(
-            pillsRef,
-            where("userId", "==", currentUser.uid)
-          );
-          return onSnapshot(basicQuery, (snapshot) => {
-            const pillData: PillReminder[] = [];
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              pillData.push({
-                id: doc.id,
-                name: data.name,
-                frequency: data.frequency,
-                time: data.time,
-                daysOfWeek: data.daysOfWeek || [],
-                specificDate: data.specificDate,
-                userId: data.userId,
-                createdAt: data.createdAt,
-                notificationEmail: data.notificationEmail,
-                sendNotifications: data.sendNotifications,
-                telegramChatId: data.telegramChatId,
-                useTelegramNotifications: data.useTelegramNotifications,
-              });
+    const unsubscribePills = registerListener(
+      onSnapshot(
+        pillsQuery,
+        (snapshot) => {
+          const pillData: PillReminder[] = [];
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            pillData.push({
+              id: doc.id,
+              name: data.name,
+              frequency: data.frequency,
+              time: data.time,
+              daysOfWeek: data.daysOfWeek || [],
+              specificDate: data.specificDate,
+              userId: data.userId,
+              createdAt: data.createdAt,
+              notificationEmail: data.notificationEmail,
+              sendNotifications: data.sendNotifications,
+              telegramChatId: data.telegramChatId,
+              useTelegramNotifications: data.useTelegramNotifications,
             });
-            // Sort manually since we're not using orderBy
-            pillData.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-            setPills(pillData);
           });
+          // Sort manually if we're using the fallback query
+          if (!pillsQuery.toString().includes("orderBy")) {
+            pillData.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+          }
+          setPills(pillData);
+        },
+        (error) => {
+          console.error("Error fetching pill reminders:", error);
+          // If we get an index error, retry with the basic query
+          if (
+            error.code === "failed-precondition" ||
+            error.code === "resource-exhausted"
+          ) {
+            console.warn("Retrying with basic query due to index error");
+            const basicQuery = query(
+              pillsRef,
+              where("userId", "==", currentUser.uid)
+            );
+            return onSnapshot(basicQuery, (snapshot) => {
+              const pillData: PillReminder[] = [];
+              snapshot.forEach((doc) => {
+                const data = doc.data();
+                pillData.push({
+                  id: doc.id,
+                  name: data.name,
+                  frequency: data.frequency,
+                  time: data.time,
+                  daysOfWeek: data.daysOfWeek || [],
+                  specificDate: data.specificDate,
+                  userId: data.userId,
+                  createdAt: data.createdAt,
+                  notificationEmail: data.notificationEmail,
+                  sendNotifications: data.sendNotifications,
+                  telegramChatId: data.telegramChatId,
+                  useTelegramNotifications: data.useTelegramNotifications,
+                });
+              });
+              // Sort manually since we're not using orderBy
+              pillData.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+              setPills(pillData);
+            });
+          }
+          return undefined; // Add a return value for all code paths
         }
-        return undefined; // Add a return value for all code paths
-      }
+      )
     );
 
     return () => {
@@ -1539,13 +1601,15 @@ export default function FitnessTrackerContent() {
         orderBy("createdAt", "desc")
       );
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const botsList: TelegramBot[] = [];
-        snapshot.forEach((doc) => {
-          botsList.push({ id: doc.id, ...doc.data() } as TelegramBot);
-        });
-        setTelegramBots(botsList);
-      });
+      const unsubscribe = registerListener(
+        onSnapshot(q, (snapshot) => {
+          const botsList: TelegramBot[] = [];
+          snapshot.forEach((doc) => {
+            botsList.push({ id: doc.id, ...doc.data() } as TelegramBot);
+          });
+          setTelegramBots(botsList);
+        })
+      );
 
       return unsubscribe;
     } catch (error) {
@@ -2979,6 +3043,21 @@ export default function FitnessTrackerContent() {
                             {error && (
                               <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
                                 {error}
+                                {error.includes("network") && (
+                                  <div className="mt-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleWeightSubmit(
+                                          e as unknown as React.FormEvent
+                                        );
+                                      }}
+                                      className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                                    >
+                                      Try Again
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             )}
 
@@ -3213,6 +3292,19 @@ export default function FitnessTrackerContent() {
                 {error && (
                   <div className="text-red-500 dark:text-red-300 text-sm bg-red-50 dark:bg-red-900/30 p-4 rounded-lg mt-4">
                     {error}
+                    {error.includes("network") && (
+                      <div className="mt-2">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleWeightSubmit(e as unknown as React.FormEvent);
+                          }}
+                          className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
