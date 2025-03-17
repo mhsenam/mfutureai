@@ -38,7 +38,14 @@ import {
   limit,
   enableNetwork,
   disableNetwork,
+  updateDoc,
+  getDoc,
+  writeBatch,
 } from "firebase/firestore";
+import toast from "react-hot-toast";
+
+// Add import for NotificationSettings
+import NotificationSettings from "./NotificationSettings";
 
 // Define WeightEntry interface directly here to avoid import issues
 interface WeightEntry {
@@ -209,6 +216,22 @@ interface PillReminder {
   specificDate?: string | null;
   userId: string;
   createdAt: string;
+  notificationEmail: string;
+  sendNotifications: boolean;
+  // New fields for Telegram
+  telegramChatId?: string;
+  useTelegramNotifications: boolean;
+}
+
+// Define TelegramBot interface for bot history
+interface TelegramBot {
+  id: string;
+  botToken: string;
+  botName: string;
+  chatId?: string;
+  username?: string;
+  createdAt: string;
+  isActive: boolean;
 }
 
 export default function FitnessTrackerContent() {
@@ -246,6 +269,9 @@ export default function FitnessTrackerContent() {
     specificDate: null,
     userId: currentUser?.uid || "",
     createdAt: new Date().toISOString(),
+    notificationEmail: currentUser?.email || "",
+    sendNotifications: true,
+    useTelegramNotifications: false,
   });
 
   // State for form
@@ -285,6 +311,13 @@ export default function FitnessTrackerContent() {
 
   // Add this state
   const [firebaseReady, setFirebaseReady] = useState(false);
+
+  // Add state for Telegram connection
+  const [telegramConnecting, setTelegramConnecting] = useState(false);
+
+  // Add state for Telegram bot history
+  const [telegramBots, setTelegramBots] = useState<TelegramBot[]>([]);
+  const [showBotHistory, setShowBotHistory] = useState(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -1237,6 +1270,10 @@ export default function FitnessTrackerContent() {
             specificDate: data.specificDate,
             userId: data.userId,
             createdAt: data.createdAt,
+            notificationEmail: data.notificationEmail,
+            sendNotifications: data.sendNotifications,
+            telegramChatId: data.telegramChatId,
+            useTelegramNotifications: data.useTelegramNotifications,
           });
         });
         // Sort manually if we're using the fallback query
@@ -1270,6 +1307,10 @@ export default function FitnessTrackerContent() {
                 specificDate: data.specificDate,
                 userId: data.userId,
                 createdAt: data.createdAt,
+                notificationEmail: data.notificationEmail,
+                sendNotifications: data.sendNotifications,
+                telegramChatId: data.telegramChatId,
+                useTelegramNotifications: data.useTelegramNotifications,
               });
             });
             // Sort manually since we're not using orderBy
@@ -1307,8 +1348,11 @@ export default function FitnessTrackerContent() {
         createdAt: new Date().toISOString(),
       };
 
+      console.log("Saving pill reminder with data:", newPillReminder);
+
       // Add to Firestore
-      await addDoc(pillsRef, newPillReminder);
+      const docRef = await addDoc(pillsRef, newPillReminder);
+      console.log("Pill reminder saved with ID:", docRef.id);
 
       // Reset form
       setPillFormData({
@@ -1319,6 +1363,9 @@ export default function FitnessTrackerContent() {
         specificDate: null,
         userId: currentUser.uid,
         createdAt: new Date().toISOString(),
+        notificationEmail: currentUser?.email || "",
+        sendNotifications: true,
+        useTelegramNotifications: false,
       });
 
       setShowPillForm(false);
@@ -1368,8 +1415,380 @@ export default function FitnessTrackerContent() {
       specificDate: pill.specificDate,
       userId: pill.userId,
       createdAt: pill.createdAt,
+      notificationEmail: pill.notificationEmail,
+      sendNotifications: pill.sendNotifications,
+      telegramChatId: pill.telegramChatId,
+      useTelegramNotifications: pill.useTelegramNotifications,
     });
     setShowPillForm(true);
+  };
+
+  // Add this function to handle Telegram authentication
+  const handleTelegramAuth = async (botToken: string, botName: string) => {
+    if (!botToken || !botToken.includes(":")) {
+      toast.error("Please enter a valid bot token");
+      return;
+    }
+
+    if (!botName || botName.trim() === "") {
+      toast.error("Please enter a valid bot name");
+      return;
+    }
+
+    try {
+      setTelegramConnecting(true);
+
+      // Use the bot token as the authentication token
+      const userToken = botToken;
+      localStorage.setItem("telegramAuthToken", userToken);
+
+      // Create a deep link to the Telegram bot using the provided bot name
+      const telegramUrl = `https://t.me/${botName}?start=${currentUser?.uid}_${
+        userToken.split(":")[0]
+      }`;
+
+      // Open Telegram in a new window
+      window.open(telegramUrl, "_blank");
+
+      // Store the bot in the telegramBots collection
+      const botRef = await addDoc(collection(db, "telegramBots"), {
+        userId: currentUser?.uid,
+        botToken: botToken,
+        botName: botName,
+        createdAt: new Date().toISOString(),
+        isActive: true,
+      });
+
+      // Store the current bot token in the user document for the Cloud Function
+      await setDoc(
+        doc(db, "users", currentUser?.uid || ""),
+        {
+          currentBotId: botRef.id,
+          telegramBotToken: botToken,
+        },
+        { merge: true }
+      );
+
+      toast.success("Bot registered! Please authorize in Telegram");
+
+      // In a real app, the webhook would update the bot document with the chat ID
+      // For now, we'll simulate it after a delay
+      setTimeout(async () => {
+        // Generate a random chat ID for simulation purposes
+        const chatId = Math.floor(Math.random() * 1000000000).toString();
+        const username = `user${Math.floor(Math.random() * 10000)}`;
+
+        // Update the bot document with the chat ID
+        await updateDoc(doc(db, "telegramBots", botRef.id), {
+          chatId: chatId,
+          username: username,
+        });
+
+        // Update the user document with the chat ID
+        await updateDoc(doc(db, "users", currentUser?.uid || ""), {
+          telegramChatId: chatId,
+        });
+
+        // Update local state
+        setPillFormData({
+          ...pillFormData,
+          telegramChatId: chatId,
+        });
+
+        setTelegramConnecting(false);
+        toast.success("Telegram connected successfully!");
+      }, 3000);
+    } catch (error) {
+      console.error("Error connecting to Telegram:", error);
+      setTelegramConnecting(false);
+      toast.error("Failed to connect to Telegram");
+    }
+  };
+
+  // Add a function to fetch the user's Telegram bots
+  const fetchTelegramBots = async () => {
+    if (!currentUser) return;
+
+    try {
+      // Get the user's Telegram bots from Firestore
+      const botsRef = collection(db, "telegramBots");
+      const q = query(
+        botsRef,
+        where("userId", "==", currentUser.uid),
+        orderBy("createdAt", "desc")
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const botsList: TelegramBot[] = [];
+        snapshot.forEach((doc) => {
+          botsList.push({ id: doc.id, ...doc.data() } as TelegramBot);
+        });
+        setTelegramBots(botsList);
+      });
+
+      return unsubscribe;
+    } catch (error) {
+      console.error("Error fetching Telegram bots:", error);
+      toast.error("Failed to load Telegram bots");
+    }
+  };
+
+  // Add useEffect to fetch Telegram bots when the component mounts
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    if (currentUser) {
+      const fetchBots = async () => {
+        unsubscribe = await fetchTelegramBots();
+      };
+
+      fetchBots();
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [currentUser]);
+
+  // Create a TelegramBotHistory component
+  const TelegramBotHistory = () => {
+    if (telegramBots.length === 0) {
+      return (
+        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl mt-4">
+          <p className="text-center text-gray-500 dark:text-gray-400">
+            No Telegram bots connected yet.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl mt-4">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
+          Your Telegram Bots
+        </h3>
+        <div className="space-y-3">
+          {telegramBots.map((bot) => (
+            <div
+              key={bot.id}
+              className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-blue-600 dark:text-blue-400"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.96 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    @{bot.botName}
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {bot.chatId ? (
+                      <span className="text-green-600 dark:text-green-400">
+                        Connected
+                        {bot.username && ` as @${bot.username}`}
+                      </span>
+                    ) : (
+                      "Not connected"
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Added on {new Date(bot.createdAt).toLocaleDateString()}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <a
+                      href={`https://t.me/${bot.botName}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Open in Telegram
+                    </a>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSetActiveBot(bot.id)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    bot.isActive
+                      ? "bg-green-600 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {bot.isActive ? "Active" : "Set Active"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteBot(bot.id)}
+                  className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+            How to use your bot
+          </h4>
+          <ol className="list-decimal list-inside text-xs text-blue-700 dark:text-blue-400 space-y-1">
+            <li>Create a bot with @BotFather on Telegram</li>
+            <li>Add the bot name and token in the notification settings</li>
+            <li>Click Connect and authorize in Telegram</li>
+            <li>Your pill reminders will be sent to this bot</li>
+          </ol>
+        </div>
+      </div>
+    );
+  };
+
+  // Function to set a bot as active
+  const handleSetActiveBot = async (botId: string) => {
+    if (!currentUser) return;
+
+    try {
+      // Get the bot data
+      const botDoc = await getDoc(doc(db, "telegramBots", botId));
+      if (!botDoc.exists()) {
+        toast.error("Bot not found");
+        return;
+      }
+
+      const botData = botDoc.data() as TelegramBot;
+
+      // Update all bots to be inactive
+      const botsRef = collection(db, "telegramBots");
+      const q = query(botsRef, where("userId", "==", currentUser.uid));
+      const querySnapshot = await getDocs(q);
+
+      const batch = writeBatch(db);
+      querySnapshot.forEach((doc) => {
+        batch.update(doc.ref, { isActive: false });
+      });
+
+      // Set the selected bot as active
+      batch.update(doc(db, "telegramBots", botId), { isActive: true });
+
+      // Update the user document with the current bot token
+      batch.update(doc(db, "users", currentUser.uid), {
+        currentBotId: botId,
+        telegramBotToken: botData.botToken,
+        telegramChatId: botData.chatId || null,
+      });
+
+      await batch.commit();
+
+      // Update local state if this bot has a chat ID
+      if (botData.chatId) {
+        setPillFormData({
+          ...pillFormData,
+          telegramChatId: botData.chatId,
+        });
+      }
+
+      toast.success("Bot set as active");
+    } catch (error) {
+      console.error("Error setting bot as active:", error);
+      toast.error("Failed to set bot as active");
+    }
+  };
+
+  // Function to delete a bot
+  const handleDeleteBot = async (botId: string) => {
+    if (!currentUser) return;
+
+    try {
+      // Check if this is the active bot
+      const botDoc = await getDoc(doc(db, "telegramBots", botId));
+      if (!botDoc.exists()) {
+        toast.error("Bot not found");
+        return;
+      }
+
+      const botData = botDoc.data() as TelegramBot;
+
+      // Delete the bot
+      await deleteDoc(doc(db, "telegramBots", botId));
+
+      // If this was the active bot, update the user document
+      if (botData.isActive) {
+        // Find another bot to set as active
+        const botsRef = collection(db, "telegramBots");
+        const q = query(
+          botsRef,
+          where("userId", "==", currentUser.uid),
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const newActiveBot = querySnapshot.docs[0];
+          const newActiveBotData = newActiveBot.data() as TelegramBot;
+
+          // Set the new bot as active
+          await updateDoc(newActiveBot.ref, { isActive: true });
+
+          // Update the user document
+          await updateDoc(doc(db, "users", currentUser.uid), {
+            currentBotId: newActiveBot.id,
+            telegramBotToken: newActiveBotData.botToken,
+            telegramChatId: newActiveBotData.chatId || null,
+          });
+
+          // Update local state if this bot has a chat ID
+          if (newActiveBotData.chatId) {
+            setPillFormData({
+              ...pillFormData,
+              telegramChatId: newActiveBotData.chatId,
+            });
+          }
+        } else {
+          // No bots left, clear the user's bot data
+          await updateDoc(doc(db, "users", currentUser.uid), {
+            currentBotId: null,
+            telegramBotToken: null,
+            telegramChatId: null,
+          });
+
+          // Update local state
+          setPillFormData({
+            ...pillFormData,
+            telegramChatId: undefined,
+          });
+        }
+      }
+
+      toast.success("Bot deleted");
+    } catch (error) {
+      console.error("Error deleting bot:", error);
+      toast.error("Failed to delete bot");
+    }
+  };
+
+  // Add a function to toggle the bot history visibility
+  const toggleBotHistory = () => {
+    setShowBotHistory(!showBotHistory);
   };
 
   // If still loading or not logged in show loading state
@@ -2205,13 +2624,70 @@ export default function FitnessTrackerContent() {
                                       <h3 className="font-medium text-gray-900">
                                         {pill.name}
                                       </h3>
-                                      <p className="text-sm text-gray-700">
-                                        {pill.frequency === "daily"
-                                          ? "Daily"
-                                          : pill.frequency === "weekly"
-                                          ? "Weekly"
-                                          : "Specific Date"}
-                                      </p>
+                                      <div className="text-sm text-gray-700 space-y-1">
+                                        <p>
+                                          {pill.frequency === "daily"
+                                            ? "Daily"
+                                            : pill.frequency === "weekly"
+                                            ? "Weekly"
+                                            : "Specific Date"}
+                                          {" at "}
+                                          {pill.time}
+                                        </p>
+                                        {pill.frequency === "weekly" &&
+                                          pill.daysOfWeek && (
+                                            <p className="text-gray-600">
+                                              Days:{" "}
+                                              {pill.daysOfWeek
+                                                .map((day) => day.slice(0, 3))
+                                                .join(", ")}
+                                            </p>
+                                          )}
+                                        {pill.frequency === "specific_date" &&
+                                          pill.specificDate && (
+                                            <p className="text-gray-600">
+                                              Date:{" "}
+                                              {new Date(
+                                                pill.specificDate
+                                              ).toLocaleDateString()}
+                                            </p>
+                                          )}
+
+                                        {/* Notification Methods */}
+                                        {pill.sendNotifications && (
+                                          <div className="flex flex-wrap gap-2 mt-1">
+                                            {pill.notificationEmail && (
+                                              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                <svg
+                                                  xmlns="http://www.w3.org/2000/svg"
+                                                  className="h-3 w-3"
+                                                  viewBox="0 0 20 20"
+                                                  fill="currentColor"
+                                                >
+                                                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                                                </svg>
+                                                Email
+                                              </span>
+                                            )}
+
+                                            {pill.useTelegramNotifications &&
+                                              pill.telegramChatId && (
+                                                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                  <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    className="h-3 w-3"
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                  >
+                                                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.96 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                                                  </svg>
+                                                  Telegram
+                                                </span>
+                                              )}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                   <div className="flex gap-2">
@@ -2415,6 +2891,44 @@ export default function FitnessTrackerContent() {
                                   </div>
                                 </div>
                               )}
+
+                              {/* Email Notification Settings */}
+                              <NotificationSettings
+                                sendNotifications={
+                                  pillFormData.sendNotifications
+                                }
+                                toggleNotifications={() =>
+                                  setPillFormData({
+                                    ...pillFormData,
+                                    sendNotifications:
+                                      !pillFormData.sendNotifications,
+                                  })
+                                }
+                                notificationEmail={
+                                  pillFormData.notificationEmail
+                                }
+                                setNotificationEmail={(email) =>
+                                  setPillFormData({
+                                    ...pillFormData,
+                                    notificationEmail: email,
+                                  })
+                                }
+                                telegramChatId={pillFormData.telegramChatId}
+                                useTelegramNotifications={
+                                  pillFormData.useTelegramNotifications
+                                }
+                                toggleTelegramNotifications={() =>
+                                  setPillFormData({
+                                    ...pillFormData,
+                                    useTelegramNotifications:
+                                      !pillFormData.useTelegramNotifications,
+                                  })
+                                }
+                                handleTelegramAuth={handleTelegramAuth}
+                                telegramConnecting={telegramConnecting}
+                                showBotHistory={showBotHistory}
+                                toggleBotHistory={toggleBotHistory}
+                              />
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4">
@@ -2509,6 +3023,9 @@ export default function FitnessTrackerContent() {
               </div>
             </div>
           )}
+
+          {/* Show Telegram Bot History if enabled */}
+          {showBotHistory && <TelegramBotHistory />}
         </main>
 
         {/* Footer */}
