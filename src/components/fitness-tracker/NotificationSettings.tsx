@@ -8,10 +8,11 @@ interface NotificationSettingsProps {
   telegramChatId?: string;
   useTelegramNotifications: boolean;
   toggleTelegramNotifications: () => void;
-  handleTelegramAuth: (botToken: string, botName: string) => void;
+  handleTelegramAuth: (telegramUserId: string) => void;
   telegramConnecting?: boolean;
   showBotHistory?: boolean;
   toggleBotHistory?: () => void;
+  debugTelegramConnection?: () => void;
 }
 
 const NotificationSettings: React.FC<NotificationSettingsProps> = ({
@@ -26,24 +27,22 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
   telegramConnecting = false,
   showBotHistory = false,
   toggleBotHistory,
+  debugTelegramConnection,
 }) => {
-  const [botToken, setBotToken] = useState<string>("");
-  const [botName, setBotName] = useState<string>("");
+  const [telegramUserId, setTelegramUserId] = useState<string>("");
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
   const handleConnect = () => {
-    if (!botToken.trim()) {
-      console.error("Please enter a bot token");
-      return;
-    }
-
-    if (!botName.trim()) {
-      console.error("Please enter a bot name");
+    if (!telegramUserId.trim()) {
+      // Show error message if user ID is empty
+      alert("Please enter your Telegram User ID");
       return;
     }
 
     setIsConnecting(true);
-    handleTelegramAuth(botToken, botName);
+
+    // Call the auth function with the user-provided Telegram ID
+    handleTelegramAuth(telegramUserId);
 
     // Reset connecting state after a delay (in case of failure)
     setTimeout(() => {
@@ -172,7 +171,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                         type="button"
                         onClick={handleConnect}
                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
-                        disabled={!botToken.trim() || !botName.trim()}
+                        disabled={!telegramUserId.trim()}
                       >
                         Connect
                       </button>
@@ -181,60 +180,143 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                 )}
               </div>
 
-              {!telegramChatId && (
+              {!telegramChatId && !connecting && (
                 <div className="mt-3 space-y-3">
                   <div className="relative">
                     <label
-                      htmlFor="botName"
+                      htmlFor="telegramUserId"
                       className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
-                      Bot Name (without @ symbol)
+                      Your Telegram User ID
                     </label>
                     <input
                       type="text"
-                      id="botName"
-                      name="botName"
-                      value={botName}
+                      id="telegramUserId"
+                      name="telegramUserId"
+                      value={telegramUserId}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setBotName(e.target.value)
+                        setTelegramUserId(e.target.value)
                       }
-                      placeholder="Enter your bot name (e.g. MyFitnessBotName)"
-                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <label
-                      htmlFor="botToken"
-                      className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      Bot Token
-                    </label>
-                    <input
-                      type="text"
-                      id="botToken"
-                      name="botToken"
-                      value={botToken}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setBotToken(e.target.value)
-                      }
-                      placeholder="Enter your Telegram bot token"
+                      placeholder="Enter your Telegram User ID (e.g. 627097366)"
                       className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     />
                   </div>
 
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    1. Create a bot with @BotFather on Telegram
+                    1. Enter your Telegram User ID above
                     <br />
-                    2. Copy the bot name (without @ symbol) and token
+                    2. Click Connect to open Telegram and automatically send the
+                    command
                     <br />
-                    3. Paste them above and click Connect
+                    3. Confirm the command in Telegram to complete the
+                    connection
                   </p>
                 </div>
               )}
 
+              {connecting && (
+                <div className="mt-3 py-2 px-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Waiting for Telegram connection... Confirm the command in
+                    Telegram if needed.
+                  </p>
+
+                  <div className="mt-2 text-xs">
+                    <p className="text-gray-600 dark:text-gray-400">
+                      If Telegram didn&apos;t open automatically or the command
+                      wasn&apos;t sent, click:
+                    </p>
+                    <div className="flex flex-col gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Open Telegram with the start command pre-filled
+                          window.open(
+                            `https://t.me/mfuturetestbot?start=${telegramUserId}`,
+                            "_blank"
+                          );
+                        }}
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Send Command to Bot
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Manually check connection status
+                          handleTelegramAuth(telegramUserId);
+                        }}
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Check Connection Status
+                      </button>
+                      <div className="text-xs text-amber-600 mt-2">
+                        ⚠️ If you already sent the command in Telegram and saw a
+                        success message, click &quot;Check Connection
+                        Status&quot; to refresh the UI.
+                      </div>
+
+                      <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+                        <p className="text-gray-600 dark:text-gray-400 mb-2">
+                          If you&apos;re still having trouble, try this manual
+                          method:
+                        </p>
+                        <ol className="list-decimal pl-4 text-gray-600 dark:text-gray-400 space-y-1">
+                          <li>
+                            Send the command{" "}
+                            <code>/start {telegramUserId}</code> to the bot
+                          </li>
+                          <li>
+                            When the bot replies with success, check the browser
+                            console (F12) for logs
+                          </li>
+                          <li>
+                            Look for &quot;Found user with telegramChatId&quot;
+                            message and the ID value
+                          </li>
+                          <li>
+                            Reload the page to see if it recognizes the
+                            connection
+                          </li>
+                        </ol>
+
+                        {debugTelegramConnection && (
+                          <button
+                            type="button"
+                            onClick={debugTelegramConnection}
+                            className="mt-3 text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded-md text-xs"
+                          >
+                            Debug Connection (Last Resort)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Bot History Button */}
-              {toggleBotHistory && (
+              {toggleBotHistory && telegramChatId && (
                 <div className="mt-3 flex justify-end">
                   <button
                     type="button"

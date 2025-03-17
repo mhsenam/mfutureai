@@ -288,269 +288,200 @@ export const sendPillReminders = functions.pubsub
     }
   });
 
-// Update telegramWebhook to handle both start commands and callbacks
+// Update the telegramWebhook function to handle direct user auth
 export const telegramWebhook = functions.https.onRequest(async (req, res) => {
-  // Verify the request is from Telegram
+  // Ensure this is a POST request from Telegram
   if (req.method !== "POST") {
-    res.status(400).send("Only POST requests are accepted");
+    console.error("Invalid request method");
+    res.status(405).send("Method Not Allowed");
     return;
   }
 
-  const update = req.body;
+  try {
+    const update = req.body;
+    console.log("Received Telegram webhook:", JSON.stringify(update));
 
-  // Handle /start command with parameters
-  if (
-    update.message &&
-    update.message.text &&
-    update.message.text.startsWith("/start")
-  ) {
-    const params = update.message.text.substring(7).split("_");
-    if (params.length === 2) {
-      const [userId, botTokenPrefix] = params; // Extract userId and bot token prefix
+    // Get Firestore database reference
+    const db = admin.firestore();
 
-      // Store the chat ID in the user's document
-      try {
-        // Get the user document to retrieve the current bot ID
-        const db = admin.firestore();
-        // @ts-ignore
-        const userDoc = await db.collection("users").doc(userId).get();
-        const userData = userDoc.data() as User | undefined;
+    // Handle the /start command which includes user ID
+    if (
+      update.message &&
+      update.message.text &&
+      update.message.text.startsWith("/start")
+    ) {
+      console.log("Processing /start command");
+      const startCommand = update.message.text;
+      const userId = startCommand.split(" ")[1]; // Extract userId from "/start {userId}"
 
-        if (!userData || !userData.currentBotId) {
-          console.error(`No current bot ID found for user ${userId}`);
-          res.status(400).send("Bot not found");
-          return;
-        }
+      if (!userId) {
+        console.error("Missing user ID in start command");
+        res.status(200).send("Missing user ID");
+        return;
+      }
 
-        // Get the bot document
-        // @ts-ignore
-        const botDoc = await db
-          .collection("telegramBots")
-          .doc(userData.currentBotId)
-          .get();
+      console.log(`Connecting Telegram user to app user ID: ${userId}`);
 
-        if (!botDoc.exists) {
-          console.error(`Bot not found for ID ${userData.currentBotId}`);
-          res.status(400).send("Bot not found");
-          return;
-        }
+      // Check if the user exists in Firestore
+      const userDoc = await db.collection("users").doc(userId).get();
 
-        const botData = botDoc.data() as TelegramBot;
+      if (!userDoc.exists) {
+        console.error(`User ${userId} not found in Firestore`);
 
-        // Verify that the bot token prefix matches
-        if (!botData.botToken || !botData.botToken.startsWith(botTokenPrefix)) {
-          console.error(
-            `Bot token prefix mismatch for bot ${userData.currentBotId}`
-          );
-          res.status(400).send("Invalid bot token");
-          return;
-        }
-
-        // Update the bot document with the chat ID
-        // @ts-ignore
-        await db
-          .collection("telegramBots")
-          .doc(userData.currentBotId)
-          .update({
-            chatId: update.message.chat.id,
-            username: update.message.chat.username || "",
-          });
-
-        // Update the user document with the chat ID
-        // @ts-ignore
-        await db.collection("users").doc(userId).update({
-          telegramChatId: update.message.chat.id,
-        });
-
-        // Send confirmation message using the bot's token
+        // Send an error message to the user
         await sendTelegramMessage(
           update.message.chat.id,
-          "✅ Your Telegram account has been successfully connected to FitAmIn! You will now receive pill reminders here.",
-          botData.botToken || "", // Provide empty string as fallback to fix type error
-          "" // Empty string for pillId since this is just a confirmation message
+          "⚠️ User not found. Please try connecting again from the app.",
+          process.env.TELEGRAM_BOT_TOKEN || "",
+          ""
         );
 
-        res.status(200).send("OK");
-      } catch (error: unknown) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        console.error("Error storing Telegram chat ID:", errorMessage);
-        res.status(500).send("Error processing request");
+        res.status(200).send("User not found");
         return;
       }
-    } else {
-      res.status(400).send("Invalid parameters");
-    }
-  }
-  // Handle callback queries from inline keyboard buttons
-  else if (update.callback_query) {
-    try {
-      const callbackQuery = update.callback_query;
-      const callbackData = callbackQuery.data;
 
-      // Parse the callback data (format: action_pillId)
+      // Get the chat ID from the update
+      const chatId = update.message.chat.id;
+
+      // Update the user document with the Telegram chat ID
+      await db.collection("users").doc(userId).update({
+        telegramChatId: chatId.toString(),
+        useTelegramNotifications: true,
+      });
+
+      console.log(`Updated user ${userId} with Telegram chat ID ${chatId}`);
+
+      // Send a confirmation message to the user
+      await sendTelegramMessage(
+        chatId,
+        "✅ Your Telegram account has been successfully connected to FitAmIn! You will now receive pill reminders here.",
+        process.env.TELEGRAM_BOT_TOKEN || "",
+        ""
+      );
+
+      res.status(200).send("OK");
+      return;
+    }
+
+    // Handle callback queries (button clicks)
+    if (update.callback_query) {
+      // Process the callback as before...
+      console.log("Processing callback query:", update.callback_query);
+      const callbackData = update.callback_query.data;
+      const chatId = update.callback_query.message.chat.id;
+
+      // Find which action the user took (taken, snooze, skip)
       const [action, pillId] = callbackData.split("_");
 
-      if (!pillId) {
+      if (!action || !pillId) {
         console.error("Invalid callback data format");
-        res.status(400).send("Invalid callback data");
+        res.status(200).json({});
         return;
       }
 
-      // Process the action directly in the webhook
-      const db = admin.firestore();
+      // Find the user by chat ID
+      const usersSnapshot = await db
+        .collection("users")
+        .where("telegramChatId", "==", chatId.toString())
+        .limit(1)
+        .get();
 
-      // Get the pill reminder document
+      if (usersSnapshot.empty) {
+        console.error(`No user found with chat ID ${chatId}`);
+        res.status(200).json({});
+        return;
+      }
+
+      const userDoc = usersSnapshot.docs[0];
+      const userData = userDoc.data() as User;
+      const userId = userDoc.id;
+
+      // Get the pill reminder
       const pillDoc = await db.collection("pillReminders").doc(pillId).get();
+
       if (!pillDoc.exists) {
-        console.error(`Pill reminder with ID ${pillId} not found`);
-        res.status(404).send("Pill reminder not found");
+        console.error(`Pill with ID ${pillId} not found`);
+        res.status(200).json({});
         return;
       }
 
       const reminder = pillDoc.data() as PillReminder;
 
-      // Create a history record
+      if (reminder.userId !== userId) {
+        console.error("User ID mismatch. Possible security issue.");
+        res.status(200).json({});
+        return;
+      }
+
+      // Create a history entry
       await db.collection("pillHistory").add({
         pillId: pillId,
-        userId: reminder.userId,
-        telegramUserId: callbackQuery.from.id.toString(),
+        userId: userId,
         action: action,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        telegramUserId: update.callback_query.from.id.toString(),
       });
 
-      // Handle different actions
+      // Send a confirmation message
       let responseText = "";
-      const chatId = callbackQuery.message.chat.id;
 
-      switch (action) {
-        case "taken":
-          responseText = `✅ Great! You've marked "${reminder.name}" as taken.`;
-          break;
-        case "snooze":
-          responseText = `⏰ Reminder for "${reminder.name}" snoozed for 15 minutes.`;
+      if (action === "taken") {
+        responseText = `✅ Great! You've marked "${reminder.name}" as taken.`;
+      } else if (action === "snooze") {
+        responseText = `⏰ You've snoozed the reminder for "${reminder.name}". We'll remind you again in 15 minutes.`;
 
-          // Get the user's bot information for sending the snoozed reminder
-          const userDoc = await db
-            .collection("users")
-            .doc(reminder.userId)
-            .get();
-          if (userDoc.exists) {
-            const userData = userDoc.data() as User;
-            let botToken = userData.telegramBotToken;
+        // Schedule a follow-up reminder in 15 minutes
+        setTimeout(async () => {
+          try {
+            const reminderText = `🔔 SNOOZED REMINDER\n\nIt's been 15 minutes! Don't forget to take your medicine: ${reminder.name}`;
 
-            if (userData.currentBotId) {
-              const botDoc = await db
-                .collection("telegramBots")
-                .doc(userData.currentBotId)
-                .get();
-              if (botDoc.exists) {
-                const botData = botDoc.data() as TelegramBot;
-                botToken = botData.botToken;
-
-                // Schedule a follow-up reminder in 15 minutes
-                // Note: In a production app, use a task queue instead of setTimeout
-                setTimeout(async () => {
-                  try {
-                    const reminderText = `🔔 SNOOZED REMINDER\n\nIt's been 15 minutes! Don't forget to take your medicine: ${reminder.name}`;
-
-                    // Send a follow-up message
-                    await sendTelegramMessage(
-                      chatId,
-                      reminderText,
-                      botToken || "", // Provide empty string as fallback if botToken is undefined
-                      pillId
-                    );
-                  } catch (error) {
-                    console.error("Error sending snoozed reminder:", error);
-                  }
-                }, 15 * 60 * 1000); // 15 minutes
-              }
-            }
+            // Send a follow-up message
+            await sendTelegramMessage(
+              chatId,
+              reminderText,
+              process.env.TELEGRAM_BOT_TOKEN || "",
+              pillId
+            );
+          } catch (error) {
+            console.error("Error sending snoozed reminder:", error);
           }
-          break;
-        case "skip":
-          responseText = `⏭️ You've skipped today's dose of "${reminder.name}".`;
-          break;
-        default:
-          responseText = "Invalid action";
+        }, 15 * 60 * 1000); // 15 minutes
+      } else if (action === "skip") {
+        responseText = `⏭️ You've skipped the dose for "${reminder.name}".`;
       }
 
-      // Send acknowledgment by answering the callback query
-      try {
-        const userDoc = await db.collection("users").doc(reminder.userId).get();
-        if (userDoc.exists) {
-          const userData = userDoc.data() as User;
-          let botToken = userData.telegramBotToken;
-
-          if (userData.currentBotId) {
-            const botDoc = await db
-              .collection("telegramBots")
-              .doc(userData.currentBotId)
-              .get();
-            if (botDoc.exists) {
-              const botData = botDoc.data() as TelegramBot;
-              botToken = botData.botToken;
-
-              // Answer the callback query
-              await new Promise((resolve, reject) => {
-                const data = JSON.stringify({
-                  callback_query_id: callbackQuery.id,
-                  text: responseText.substring(0, 200), // Telegram limits to 200 chars
-                });
-
-                const options = {
-                  hostname: "api.telegram.org",
-                  port: 443,
-                  path: `/bot${botToken}/answerCallbackQuery`,
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": data.length,
-                  },
-                };
-
-                const req = https.request(options, (res: IncomingMessage) => {
-                  if (
-                    !res.statusCode ||
-                    res.statusCode < 200 ||
-                    res.statusCode >= 300
-                  ) {
-                    return reject(
-                      new Error(
-                        `Telegram API error: Status code ${
-                          res.statusCode || "unknown"
-                        }`
-                      )
-                    );
-                  }
-
-                  res.on("data", () => {});
-                  res.on("end", () => {
-                    resolve(null);
-                  });
-                });
-
-                req.on("error", (error: Error) => {
-                  reject(error);
-                });
-
-                req.write(data);
-                req.end();
-              });
-            }
-          }
+      // Answer the callback query to remove the loading state
+      await fetch(
+        `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            callback_query_id: update.callback_query.id,
+          }),
         }
-      } catch (error) {
-        console.error("Error answering callback query:", error);
-      }
+      );
 
-      res.status(200).send("OK");
-    } catch (error) {
-      console.error("Error handling callback:", error);
-      res.status(500).send("Internal server error");
+      // Send the confirmation message
+      await sendTelegramMessage(
+        chatId,
+        responseText,
+        process.env.TELEGRAM_BOT_TOKEN || "",
+        ""
+      );
+
+      res.status(200).json({});
+      return;
     }
-  } else {
+
+    // Handle other message types
     res.status(200).send("OK");
+    return;
+  } catch (error) {
+    console.error("Error processing Telegram webhook:", error);
+    res.status(500).send("Internal Server Error");
+    return;
   }
 });
