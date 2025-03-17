@@ -45,6 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
+    // Set a flag that we're logging out - this will help prevent permission errors
+    // in components with active listeners
+    setLoading(true);
+
+    // Small delay to allow components to react to loading state
+    // and potentially clean up their listeners
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Now sign out
     await signOut(auth);
   }
 

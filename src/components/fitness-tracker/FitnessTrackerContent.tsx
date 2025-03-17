@@ -238,6 +238,10 @@ export default function FitnessTrackerContent() {
   const { currentUser, logout } = useAuth();
   const router = useRouter();
 
+  // Refs for managing timers
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const retryTimer = useRef<NodeJS.Timeout | null>(null);
+
   // State for workout entries
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
 
@@ -302,7 +306,6 @@ export default function FitnessTrackerContent() {
   // Add these new state variables for long press functionality
   const [longPressActive, setLongPressActive] = useState<number | null>(null);
   const [longPressProgress, setLongPressProgress] = useState<number>(0);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const longPressDuration = 2000; // 2 seconds in milliseconds
   const longPressInterval = 50; // Update progress every 50ms
 
@@ -328,7 +331,13 @@ export default function FitnessTrackerContent() {
 
   // Load data from Firestore
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      // Clean up any existing data when user is not authenticated
+      setWeightEntries([]);
+      setWorkouts([]);
+      setIsInitialLoading(false);
+      return;
+    }
 
     setIsInitialLoading(true);
 
@@ -384,7 +393,11 @@ export default function FitnessTrackerContent() {
 
   // Fetch user's weight history from Firebase when component mounts or user changes
   useEffect(() => {
+    // Clear state immediately if no user
     if (!currentUser) {
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current);
+      }
       setWeightEntries([]);
       setIsInitialLoading(false);
       return;
@@ -730,10 +743,17 @@ export default function FitnessTrackerContent() {
   // Handle logout
   const handleLogout = async () => {
     try {
+      // First disable all Firebase network connections to prevent permission errors
+      console.log("Disabling Firebase network connections before logout");
+      await disableNetwork(db);
+
+      // Then perform the logout
       await logout();
       router.push("/login");
     } catch (error) {
       console.error("Failed to log out", error);
+      // Re-enable network in case of error
+      await enableNetwork(db);
     }
   };
 
