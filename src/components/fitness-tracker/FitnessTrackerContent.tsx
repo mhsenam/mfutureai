@@ -1751,7 +1751,8 @@ export default function FitnessTrackerContent() {
     }
   };
 
-  const handleTelegramAuth = async (telegramUserId: string) => {
+  // First fix handleTelegramAuth to not use unused parameters
+  const handleTelegramAuth = async () => {
     try {
       setTelegramConnecting(true);
       console.log("Starting Telegram authentication process...");
@@ -1763,162 +1764,68 @@ export default function FitnessTrackerContent() {
         console.warn(
           "No current user found. Authentication might not work properly."
         );
+        toast.error("You must be logged in to connect to Telegram.");
+        setTelegramConnecting(false);
+        return;
       }
 
       // Create a deep link to the Telegram bot with the start command pre-filled
-      // This will automatically populate the message field with "/start {telegramUserId}"
-      const telegramUrl = `https://t.me/mfuturetestbot?start=${telegramUserId}`;
+      // This will automatically populate the message field with "/start {userId}"
+      // IMPORTANT: We must send the Firebase user ID, not the telegram user ID
+      const telegramUrl = `https://t.me/mfuturetestbot?start=${currentUser.uid}`;
       console.log(`Generated Telegram URL with start command: ${telegramUrl}`);
 
-      // Open Telegram in a new window with the pre-filled command
+      // Open the Telegram URL in a new tab
       window.open(telegramUrl, "_blank");
 
-      // Inform the user what's happening
-      toast.success(
-        "Telegram opened with start command. Please confirm by sending the command.",
-        { duration: 6000 }
-      );
+      // Show a toast message to explain what's happening
+      toast.success("Connecting to Telegram...", { duration: 3000 });
 
-      // Force a quick refresh to ensure we've properly initialized
-      try {
-        // Wait briefly to ensure Firestore has time to update
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Wait for a few seconds and then check if the user connected
+      setTimeout(() => {
+        // Look for telegramChatId in the user's document
+        checkForTelegramConnection();
+      }, 5000);
 
-        // Manually check if we have user data
-        const usersSnapshot = await getDocs(collection(db, "users"));
-        console.log(
-          "All users in database:",
-          usersSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-        );
-      } catch (error) {
-        console.error("Error checking database:", error);
+      // Add logging for debugging
+      console.log("TelegramAuth process initiated");
+    } catch (error) {
+      console.error("Error in Telegram auth:", error);
+      toast.error("Failed to connect to Telegram");
+      setTelegramConnecting(false);
+    }
+  };
+
+  // Fix the toast.info to use toast.loading instead for compatibility
+  const checkForTelegramConnection = async () => {
+    try {
+      if (!currentUser) {
+        setTelegramConnecting(false);
+        return;
       }
 
-      // Set up polling to check for connection status
-      let attempts = 0;
-      const maxAttempts = 60; // Increase to give more time (2 minutes)
+      // Get the user's document to see if telegramChatId was set
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      if (userDoc.exists() && userDoc.data().telegramChatId) {
+        // Connection successful!
+        toast.success("Successfully connected to Telegram!");
 
-      // Helper function to update UI when telegramChatId is found
-      const updateTelegramConnectionUI = (chatId: string) => {
-        console.log("Updating UI with Telegram chat ID:", chatId);
-
-        // Update the pill form data
-        setPillFormData((prevState) => ({
-          ...prevState,
-          telegramChatId: chatId,
+        // Update pill form data
+        setPillFormData((prev) => ({
+          ...prev,
+          telegramChatId: userDoc.data().telegramChatId,
         }));
 
-        // Update UI status
         setTelegramConnecting(false);
-
-        // Show success message
-        toast.success("Telegram connected successfully!");
-      };
-
-      const checkConnectionStatus = async () => {
-        if (attempts >= maxAttempts) {
-          setTelegramConnecting(false);
-          toast.error("Connection timeout. Please try again.");
-          return;
-        }
-
-        attempts++;
-        console.log(`Checking connection status, attempt ${attempts}...`);
-
-        try {
-          // First try a simpler approach - check all users
-          console.log("Trying to find any user with a Telegram chat ID");
-
-          try {
-            const usersSnapshot = await getDocs(collection(db, "users"));
-            console.log(`Found ${usersSnapshot.docs.length} users in database`);
-
-            for (const userDoc of usersSnapshot.docs) {
-              console.log(`Checking user ${userDoc.id}:`, userDoc.data());
-              const userData = userDoc.data();
-
-              if (userData.telegramChatId) {
-                console.log(
-                  `User ${userDoc.id} has telegramChatId:`,
-                  userData.telegramChatId
-                );
-
-                // We found a user with a Telegram chat ID - update UI
-                updateTelegramConnectionUI(userData.telegramChatId);
-                return;
-              }
-            }
-
-            // If we've gotten this far, no user has a telegramChatId yet
-            console.log("No users found with telegramChatId yet");
-          } catch (userQueryError) {
-            console.error("Error querying all users:", userQueryError);
-          }
-
-          // If still no success, try querying for the specific user ID
-          try {
-            // Only try specific ID lookup if we have a telegramUserId
-            if (telegramUserId && telegramUserId.trim()) {
-              console.log(`Trying direct lookup with ID: ${telegramUserId}`);
-
-              const userDoc = await getDoc(doc(db, "users", telegramUserId));
-
-              if (userDoc.exists()) {
-                console.log(
-                  `Found user document for ID ${telegramUserId}:`,
-                  userDoc.data()
-                );
-
-                if (userDoc.data().telegramChatId) {
-                  console.log(
-                    "User has telegramChatId:",
-                    userDoc.data().telegramChatId
-                  );
-                  updateTelegramConnectionUI(userDoc.data().telegramChatId);
-                  return;
-                } else {
-                  console.log(
-                    "User exists but doesn't have telegramChatId yet"
-                  );
-                }
-              } else {
-                console.log(
-                  `User document with ID ${telegramUserId} does not exist`
-                );
-              }
-            } else {
-              console.log("No specific telegramUserId to check");
-            }
-          } catch (specificUserError) {
-            console.error("Error checking specific user:", specificUserError);
-          }
-
-          // If not yet connected, check again in 2 seconds
-          setTimeout(checkConnectionStatus, 2000);
-        } catch (error) {
-          console.error("Error in checkConnectionStatus:", error);
-
-          // Don't give up on first error, try again until we reach max attempts
-          if (attempts < maxAttempts) {
-            console.log(
-              `Retrying in 2 seconds (attempt ${attempts}/${maxAttempts})...`
-            );
-            setTimeout(checkConnectionStatus, 2000);
-          } else {
-            setTelegramConnecting(false);
-            toast.error(
-              "Error checking connection status. Please try again later."
-            );
-          }
-        }
-      };
-
-      // Start checking for connection after a short delay
-      setTimeout(checkConnectionStatus, 3000);
+      } else {
+        // Not connected yet, check again in a few seconds
+        toast.loading("Waiting for Telegram connection...");
+        setTimeout(checkForTelegramConnection, 3000);
+      }
     } catch (error) {
-      console.error("Error in Telegram auth process:", error);
+      console.error("Error checking Telegram connection:", error);
+      toast.error("Error checking Telegram connection");
       setTelegramConnecting(false);
-      toast.error("Failed to connect to Telegram");
     }
   };
 

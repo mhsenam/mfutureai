@@ -8,7 +8,7 @@ interface NotificationSettingsProps {
   telegramChatId?: string;
   useTelegramNotifications: boolean;
   toggleTelegramNotifications: () => void;
-  handleTelegramAuth: (telegramUserId: string) => void;
+  handleTelegramAuth: () => void;
   telegramConnecting?: boolean;
   showBotHistory?: boolean;
   toggleBotHistory?: () => void;
@@ -42,7 +42,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
     setIsConnecting(true);
 
     // Call the auth function with the user-provided Telegram ID
-    handleTelegramAuth(telegramUserId);
+    handleTelegramAuth();
 
     // Reset connecting state after a delay (in case of failure)
     setTimeout(() => {
@@ -264,7 +264,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                         type="button"
                         onClick={() => {
                           // Manually check connection status
-                          handleTelegramAuth(telegramUserId);
+                          handleTelegramAuth();
                         }}
                         className="text-blue-600 dark:text-blue-400 hover:underline"
                       >
