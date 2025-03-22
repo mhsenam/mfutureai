@@ -12,14 +12,14 @@ declare module "firebase-functions" {
   namespace pubsub {
     interface ScheduleBuilder {
       schedule(expression: string): {
-        onRun(handler: (context?: EventContext) => Promise<any>): any;
+        onRun(handler: (context?: EventContext) => Promise<unknown>): unknown;
       };
     }
   }
 
   const pubsub: {
     schedule: (expression: string) => {
-      onRun: (handler: (context?: EventContext) => Promise<any>) => any;
+      onRun: (handler: (context?: EventContext) => Promise<unknown>) => unknown;
     };
   };
 
@@ -49,7 +49,7 @@ declare module "firebase-admin" {
   }
 
   interface DocumentSnapshot {
-    data(): any;
+    data(): Record<string, unknown>;
     id: string;
   }
 
@@ -82,7 +82,7 @@ declare module "nodemailer" {
   }
 
   interface Transporter {
-    sendMail(mailOptions: MailOptions): Promise<any>;
+    sendMail(mailOptions: MailOptions): Promise<unknown>;
   }
 
   function createTransport(options: TransportOptions): Transporter;
