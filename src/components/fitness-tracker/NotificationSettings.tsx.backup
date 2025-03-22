@@ -1,0 +1,240 @@
+import React, { useState, useEffect } from &quot;react&quot;;
+
+interface NotificationSettingsProps {
+  sendNotifications: boolean;
+  toggleNotifications: () => void;
+  notificationEmail: string;
+  setNotificationEmail: (email: string) => void;
+  useBrowserNotifications: boolean;
+  toggleBrowserNotifications: () => void;
+}
+
+const NotificationSettings: React.FC<NotificationSettingsProps> = ({
+  sendNotifications,
+  toggleNotifications,
+  notificationEmail,
+  setNotificationEmail,
+  useBrowserNotifications,
+  toggleBrowserNotifications,
+}) => {
+  const [permissionStatus, setPermissionStatus] = useState<
+    NotificationPermission | &quot;unsupported&quot;
+  >(&quot;default&quot;);
+
+  // Check if browser notifications are supported
+  useEffect(() => {
+    if (!(&quot;Notification&quot; in window)) {
+      setPermissionStatus(&quot;unsupported&quot;);
+    } else {
+      setPermissionStatus(Notification.permission);
+    }
+  }, []);
+
+  const requestNotificationPermission = async () => {
+    if (!(&quot;Notification&quot; in window)) {
+      alert(&quot;This browser does not support desktop notifications&quot;);
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setPermissionStatus(permission);
+
+      if (permission === &quot;granted&quot;) {
+        // Show a test notification
+        const notification = new Notification(&quot;Notifications enabled!&quot;, {
+          body: &quot;You will now receive pill reminders as browser notifications.&quot;,
+          icon: &quot;/favicon.ico&quot;,
+        });
+
+        // Close the notification after 5 seconds
+        setTimeout(() => notification.close(), 5000);
+
+        // Enable browser notifications
+        if (!useBrowserNotifications) {
+          toggleBrowserNotifications();
+        }
+      }
+    } catch (error) {
+      console.error(&quot;Error requesting notification permission:&quot;, error);
+    }
+  };
+
+  return (
+    <div className=&quot;space-y-4 md:col-span-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4&quot;>
+      <div className=&quot;flex items-center justify-between&quot;>
+        <div>
+          <label className=&quot;block text-base font-medium text-gray-700 dark:text-gray-200&quot;>
+            Notification Settings
+          </label>
+          <p className=&quot;text-sm text-gray-500 dark:text-gray-400 mt-1&quot;>
+            Get reminders when it&apos;s time to take your pills
+          </p>
+        </div>
+        <button
+          type=&quot;button&quot;
+          onClick={toggleNotifications}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            sendNotifications
+              ? &quot;bg-blue-600 dark:bg-blue-500&quot;
+              : &quot;bg-gray-200 dark:bg-gray-700&quot;
+          }`}
+          aria-pressed={sendNotifications}
+          aria-labelledby=&quot;notifications-label&quot;
+        >
+          <span className=&quot;sr-only&quot;>
+            {sendNotifications ? &quot;Enable&quot; : &quot;Disable&quot;} notifications
+          </span>
+          <span
+            className={`${
+              sendNotifications ? &quot;translate-x-6&quot; : &quot;translate-x-1&quot;
+            } inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out`}
+          />
+        </button>
+      </div>
+
+      {sendNotifications && (
+        <div className=&quot;space-y-4 mt-4&quot;>
+          {/* Notification Methods */}
+          <div className=&quot;space-y-3&quot;>
+            <label className=&quot;block text-sm font-medium text-gray-700 dark:text-gray-300&quot;>
+              Notification Methods
+            </label>
+
+            {/* Hidden input for email - keeps functionality but is not visible */}
+            <input
+              type=&quot;hidden&quot;
+              id=&quot;notificationEmail&quot;
+              name=&quot;notificationEmail&quot;
+              value={notificationEmail}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setNotificationEmail(e.target.value)
+              }
+            />
+
+            {/* Browser Notification Toggle */}
+            <div className=&quot;flex flex-col p-3 border border-gray-200 dark:border-gray-700 rounded-lg&quot;>
+              <div className=&quot;flex items-center justify-between&quot;>
+                <div className=&quot;flex items-center gap-3&quot;>
+                  <div className=&quot;p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full&quot;>
+                    <svg
+                      xmlns=&quot;http://www.w3.org/2000/svg&quot;
+                      className=&quot;h-5 w-5 text-blue-600 dark:text-blue-400&quot;
+                      viewBox=&quot;0 0 20 20&quot;
+                      fill=&quot;currentColor&quot;
+                    >
+                      <path d=&quot;M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z&quot; />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className=&quot;text-sm font-medium text-gray-900 dark:text-gray-100&quot;>
+                      Browser Notifications
+                    </h4>
+                    <p className=&quot;text-xs text-gray-500 dark:text-gray-400&quot;>
+                      {permissionStatus === &quot;granted&quot;
+                        ? &quot;Notifications are enabled in this browser&quot;
+                        : permissionStatus === &quot;denied&quot;
+                        ? &quot;Notifications are blocked - please enable them in your browser settings&quot;
+                        : permissionStatus === &quot;unsupported&quot;
+                        ? &quot;Your browser doesn&apos;t support notifications&quot;
+                        : &quot;Allow notifications to receive pill reminders&quot;}
+                    </p>
+                  </div>
+                </div>
+
+                {permissionStatus === &quot;granted&quot; ? (
+                  <div className=&quot;flex items-center gap-2&quot;>
+                    <span className=&quot;text-xs text-green-600 dark:text-green-400&quot;>
+                      Enabled
+                    </span>
+                    <button
+                      type=&quot;button&quot;
+                      onClick={toggleBrowserNotifications}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        useBrowserNotifications
+                          ? &quot;bg-blue-600 dark:bg-blue-500&quot;
+                          : &quot;bg-gray-200 dark:bg-gray-700&quot;
+                      }`}
+                    >
+                      <span className=&quot;sr-only&quot;>
+                        Toggle browser notifications
+                      </span>
+                      <span
+                        className={`${
+                          useBrowserNotifications
+                            ? &quot;translate-x-6&quot;
+                            : &quot;translate-x-1&quot;
+                        } inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out`}
+                      />
+                    </button>
+                  </div>
+                ) : (
+                  <div className=&quot;flex items-center gap-2&quot;>
+                    {permissionStatus !== &quot;unsupported&quot; &&
+                      permissionStatus !== &quot;denied&quot; && (
+                        <button
+                          type=&quot;button&quot;
+                          onClick={requestNotificationPermission}
+                          className=&quot;px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors&quot;
+                        >
+                          Enable
+                        </button>
+                      )}
+                    {permissionStatus === &quot;denied&quot; && (
+                      <span className=&quot;text-xs text-red-600 dark:text-red-400&quot;>
+                        Blocked
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {permissionStatus === &quot;granted&quot; && useBrowserNotifications && (
+                <div className=&quot;mt-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg&quot;>
+                  <p className=&quot;text-xs text-green-700 dark:text-green-300&quot;>
+                    ✓ You will receive browser notifications when it&apos;s time
+                    to take your pills
+                  </p>
+                  <p className=&quot;text-xs text-green-600 dark:text-green-400 mt-1&quot;>
+                    Note: Notifications will work even when the browser is
+                    minimized on desktop. On mobile, notifications will only
+                    show when the browser is open.
+                  </p>
+                </div>
+              )}
+
+              {permissionStatus === &quot;denied&quot; && (
+                <div className=&quot;mt-3 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg&quot;>
+                  <p className=&quot;text-xs text-red-700 dark:text-red-300&quot;>
+                    You have blocked notifications for this site. To enable
+                    them:
+                  </p>
+                  <ol className=&quot;text-xs text-red-600 dark:text-red-400 list-decimal list-inside mt-1 space-y-1&quot;>
+                    <li>
+                      Click the lock/info icon in your browser&apos;s address
+                      bar
+                    </li>
+                    <li>Find &quot;Notifications&quot; settings</li>
+                    <li>Change from &quot;Block&quot; to &quot;Allow&quot;</li>
+                    <li>Refresh this page</li>
+                  </ol>
+                </div>
+              )}
+
+              {permissionStatus === &quot;unsupported&quot; && (
+                <div className=&quot;mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg&quot;>
+                  <p className=&quot;text-xs text-yellow-700 dark:text-yellow-300&quot;>
+                    Your browser doesn&apos;t support notifications. Try using
+                    Chrome, Firefox, Safari, or Edge for the best experience.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default NotificationSettings;
