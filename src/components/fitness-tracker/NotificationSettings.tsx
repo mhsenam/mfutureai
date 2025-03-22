@@ -1,18 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface NotificationSettingsProps {
   sendNotifications: boolean;
   toggleNotifications: () => void;
   notificationEmail: string;
   setNotificationEmail: (email: string) => void;
-  telegramChatId?: string;
-  useTelegramNotifications: boolean;
-  toggleTelegramNotifications: () => void;
-  handleTelegramAuth: () => void;
-  telegramConnecting?: boolean;
-  showBotHistory?: boolean;
-  toggleBotHistory?: () => void;
-  debugTelegramConnection?: () => void;
+  useBrowserNotifications: boolean;
+  toggleBrowserNotifications: () => void;
 }
 
 const NotificationSettings: React.FC<NotificationSettingsProps> = ({
@@ -20,38 +14,51 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
   toggleNotifications,
   notificationEmail,
   setNotificationEmail,
-  telegramChatId,
-  useTelegramNotifications,
-  toggleTelegramNotifications,
-  handleTelegramAuth,
-  telegramConnecting = false,
-  showBotHistory = false,
-  toggleBotHistory,
-  debugTelegramConnection,
+  useBrowserNotifications,
+  toggleBrowserNotifications,
 }) => {
-  const [telegramUserId, setTelegramUserId] = useState<string>("");
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [permissionStatus, setPermissionStatus] = useState<
+    NotificationPermission | "unsupported"
+  >("default");
 
-  const handleConnect = () => {
-    if (!telegramUserId.trim()) {
-      // Show error message if user ID is empty
-      alert("Please enter your Telegram User ID");
+  // Check if browser notifications are supported
+  useEffect(() => {
+    if (!("Notification" in window)) {
+      setPermissionStatus("unsupported");
+    } else {
+      setPermissionStatus(Notification.permission);
+    }
+  }, []);
+
+  const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) {
+      alert("This browser does not support desktop notifications");
       return;
     }
 
-    setIsConnecting(true);
+    try {
+      const permission = await Notification.requestPermission();
+      setPermissionStatus(permission);
 
-    // Call the auth function with the user-provided Telegram ID
-    handleTelegramAuth();
+      if (permission === "granted") {
+        // Show a test notification
+        const notification = new Notification("Notifications enabled!", {
+          body: "You will now receive pill reminders as browser notifications.",
+          icon: "/favicon.ico",
+        });
 
-    // Reset connecting state after a delay (in case of failure)
-    setTimeout(() => {
-      setIsConnecting(false);
-    }, 5000);
+        // Close the notification after 5 seconds
+        setTimeout(() => notification.close(), 5000);
+
+        // Enable browser notifications
+        if (!useBrowserNotifications) {
+          toggleBrowserNotifications();
+        }
+      }
+    } catch (error) {
+      console.error("Error requesting notification permission:", error);
+    }
   };
-
-  // Use the external telegramConnecting state if provided
-  const connecting = telegramConnecting || isConnecting;
 
   return (
     <div className="space-y-4 md:col-span-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
@@ -105,7 +112,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
               }
             />
 
-            {/* Telegram Notification */}
+            {/* Browser Notification Toggle */}
             <div className="flex flex-col p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -113,44 +120,48 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       className="h-5 w-5 text-blue-600 dark:text-blue-400"
-                      viewBox="0 0 24 24"
+                      viewBox="0 0 20 20"
                       fill="currentColor"
                     >
-                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.96 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                      <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
                     </svg>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      Telegram
+                      Browser Notifications
                     </h4>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {telegramChatId
-                        ? "Telegram notifications enabled"
-                        : "Connect your Telegram account to receive notifications"}
+                      {permissionStatus === "granted"
+                        ? "Notifications are enabled in this browser"
+                        : permissionStatus === "denied"
+                        ? "Notifications are blocked - please enable them in your browser settings"
+                        : permissionStatus === "unsupported"
+                        ? "Your browser doesn't support notifications"
+                        : "Allow notifications to receive pill reminders"}
                     </p>
                   </div>
                 </div>
 
-                {telegramChatId ? (
+                {permissionStatus === "granted" ? (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-green-600 dark:text-green-400">
-                      Connected
+                      Enabled
                     </span>
                     <button
                       type="button"
-                      onClick={toggleTelegramNotifications}
+                      onClick={toggleBrowserNotifications}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        useTelegramNotifications
+                        useBrowserNotifications
                           ? "bg-blue-600 dark:bg-blue-500"
                           : "bg-gray-200 dark:bg-gray-700"
                       }`}
                     >
                       <span className="sr-only">
-                        Toggle Telegram notifications
+                        Toggle browser notifications
                       </span>
                       <span
                         className={`${
-                          useTelegramNotifications
+                          useBrowserNotifications
                             ? "translate-x-6"
                             : "translate-x-1"
                         } inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out`}
@@ -159,172 +170,62 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    {connecting ? (
-                      <div className="flex items-center">
-                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-                        <span className="text-xs text-blue-600">
-                          Connecting...
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleConnect}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
-                        disabled={!telegramUserId.trim()}
-                      >
-                        Connect
-                      </button>
+                    {permissionStatus !== "unsupported" &&
+                      permissionStatus !== "denied" && (
+                        <button
+                          type="button"
+                          onClick={requestNotificationPermission}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                        >
+                          Enable
+                        </button>
+                      )}
+                    {permissionStatus === "denied" && (
+                      <span className="text-xs text-red-600 dark:text-red-400">
+                        Blocked
+                      </span>
                     )}
                   </div>
                 )}
               </div>
 
-              {!telegramChatId && !connecting && (
-                <div className="mt-3 space-y-3">
-                  <div className="relative">
-                    <label
-                      htmlFor="telegramUserId"
-                      className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      Your Telegram User ID
-                    </label>
-                    <input
-                      type="text"
-                      id="telegramUserId"
-                      name="telegramUserId"
-                      value={telegramUserId}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setTelegramUserId(e.target.value)
-                      }
-                      placeholder="Enter your Telegram User ID (e.g. 627097366)"
-                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-dark-lighter text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    />
-                  </div>
-
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    1. Enter your Telegram User ID above
-                    <br />
-                    2. Click Connect to open Telegram and automatically send the
-                    command
-                    <br />
-                    3. Confirm the command in Telegram to complete the
-                    connection
+              {permissionStatus === "granted" && useBrowserNotifications && (
+                <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <p className="text-xs text-green-700 dark:text-green-300">
+                    ✓ You will receive browser notifications when it's time to
+                    take your pills
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    Note: Notifications will work even when the browser is
+                    minimized on desktop. On mobile, notifications will only
+                    show when the browser is open.
                   </p>
                 </div>
               )}
 
-              {connecting && (
-                <div className="mt-3 py-2 px-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Waiting for Telegram connection... Confirm the command in
-                    Telegram if needed.
+              {permissionStatus === "denied" && (
+                <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <p className="text-xs text-red-700 dark:text-red-300">
+                    You have blocked notifications for this site. To enable
+                    them:
                   </p>
-
-                  <div className="mt-2 text-xs">
-                    <p className="text-gray-600 dark:text-gray-400">
-                      If Telegram didn&apos;t open automatically or the command
-                      wasn&apos;t sent, click:
-                    </p>
-                    <div className="flex flex-col gap-2 mt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Open Telegram with the start command pre-filled
-                          window.open(
-                            `https://t.me/mfuturetestbot?start=${telegramUserId}`,
-                            "_blank"
-                          );
-                        }}
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        Send Command to Bot
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Manually check connection status
-                          handleTelegramAuth();
-                        }}
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        Check Connection Status
-                      </button>
-                      <div className="text-xs text-amber-600 mt-2">
-                        ⚠️ If you already sent the command in Telegram and saw a
-                        success message, click &quot;Check Connection
-                        Status&quot; to refresh the UI.
-                      </div>
-
-                      <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
-                        <p className="text-gray-600 dark:text-gray-400 mb-2">
-                          If you&apos;re still having trouble, try this manual
-                          method:
-                        </p>
-                        <ol className="list-decimal pl-4 text-gray-600 dark:text-gray-400 space-y-1">
-                          <li>
-                            Send the command{" "}
-                            <code>/start {telegramUserId}</code> to the bot
-                          </li>
-                          <li>
-                            When the bot replies with success, check the browser
-                            console (F12) for logs
-                          </li>
-                          <li>
-                            Look for &quot;Found user with telegramChatId&quot;
-                            message and the ID value
-                          </li>
-                          <li>
-                            Reload the page to see if it recognizes the
-                            connection
-                          </li>
-                        </ol>
-
-                        {debugTelegramConnection && (
-                          <button
-                            type="button"
-                            onClick={debugTelegramConnection}
-                            className="mt-3 text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded-md text-xs"
-                          >
-                            Debug Connection (Last Resort)
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <ol className="text-xs text-red-600 dark:text-red-400 list-decimal list-inside mt-1 space-y-1">
+                    <li>
+                      Click the lock/info icon in your browser's address bar
+                    </li>
+                    <li>Find "Notifications" settings</li>
+                    <li>Change from "Block" to "Allow"</li>
+                    <li>Refresh this page</li>
+                  </ol>
                 </div>
               )}
 
-              {/* Bot History Button */}
-              {toggleBotHistory && telegramChatId && (
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={toggleBotHistory}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    {showBotHistory ? "Hide Bot History" : "View Bot History"}
-                  </button>
+              {permissionStatus === "unsupported" && (
+                <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                    Your browser doesn't support notifications. Try using
+                    Chrome, Firefox, Safari, or Edge for the best experience.
+                  </p>
                 </div>
               )}
             </div>

@@ -314,6 +314,10 @@ export const telegramWebhook = functions.https.onRequest(async (req, res) => {
       const messageText = req.body.message.text;
 
       console.log(`Received message: ${messageText} from chat ID: ${chatId}`);
+      console.log(
+        "Message sender info:",
+        JSON.stringify(req.body.message.from)
+      );
 
       // Extract user ID from /start command
       if (messageText.startsWith("/start")) {
@@ -353,44 +357,67 @@ export const telegramWebhook = functions.https.onRequest(async (req, res) => {
           return;
         }
 
-        // Improved user lookup with detailed logging
-        console.log(`Looking up user document for Firebase UID: ${userId}`);
-        const userSnapshot = await admin
-          .firestore()
-          .collection("users")
-          .doc(userId)
-          .get();
+        try {
+          // Improved user lookup with detailed logging
+          console.log(`Looking up user document for Firebase UID: ${userId}`);
+          const userSnapshot = await admin
+            .firestore()
+            .collection("users")
+            .doc(userId)
+            .get();
 
-        if (!userSnapshot.exists) {
-          console.error(
-            `User with Firebase UID ${userId} not found in Firestore`
+          if (!userSnapshot.exists) {
+            console.error(
+              `User with Firebase UID ${userId} not found in Firestore`
+            );
+            await sendTelegramMessage(
+              chatId,
+              "⚠️ User not found. Please try connecting again from the app.",
+              "",
+              defaultBotToken
+            );
+            res.status(200).send("OK");
+            return;
+          }
+
+          // Update the user's document with the Telegram chat ID
+          console.log(
+            `Updating user ${userId} with Telegram chat ID: ${chatId}`
           );
+          await admin
+            .firestore()
+            .collection("users")
+            .doc(userId)
+            .update({
+              telegramChatId: chatId,
+              telegramUsername: req.body.message.from?.username || "",
+              telegramUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+          console.log("User document updated successfully");
+
+          // Send a confirmation message
           await sendTelegramMessage(
             chatId,
-            "⚠️ User not found. Please try connecting again from the app.",
+            "✅ Successfully connected your Telegram account! You will now receive pill reminders here.",
+            "",
+            botPrefix ? `${botPrefix}${defaultBotToken}` : defaultBotToken
+          );
+
+          console.log("Connection complete and confirmation sent");
+          res.status(200).send("OK");
+          return;
+        } catch (dbError) {
+          console.error("Database error during user connection:", dbError);
+          await sendTelegramMessage(
+            chatId,
+            "⚠️ Server error while connecting. Please try again later.",
             "",
             defaultBotToken
           );
           res.status(200).send("OK");
           return;
         }
-
-        // Update the user's document with the Telegram chat ID
-        console.log(`Updating user ${userId} with Telegram chat ID: ${chatId}`);
-        await admin.firestore().collection("users").doc(userId).update({
-          telegramChatId: chatId,
-        });
-
-        // Send a confirmation message
-        await sendTelegramMessage(
-          chatId,
-          "✅ Successfully connected your Telegram account! You will now receive pill reminders here.",
-          "",
-          botPrefix ? `${botPrefix}${defaultBotToken}` : defaultBotToken
-        );
-
-        res.status(200).send("OK");
-        return;
       }
     }
 
