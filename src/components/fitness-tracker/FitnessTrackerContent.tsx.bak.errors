@@ -761,7 +761,7 @@ export default function FitnessTrackerContent() {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: name === "duration" ? parseInt(value) || 0 : value,
+      [name]: name === "duration" (? parseInt(value) || 0 : value,
     });
   };
 
@@ -1268,8 +1268,8 @@ export default function FitnessTrackerContent() {
     return {
       totalChange: weightDiff.toFixed(1),
       direction:
-        weightDiff < 0 ? "lost" : (weightDiff > 0 ? "gained" : "maintained"),
-      period: daysDiff > 1 ? `${daysDiff} days` : "1 day",
+        weightDiff < 0 ? "lost" : (weightDiff > 0 ((? "gained" : "maintained"),
+      period: daysDiff > 1 (? `${daysDiff} days` : "1 day",
     };
   };
 
@@ -2976,13 +2976,13 @@ export default function FitnessTrackerContent() {
           {process.env.NODE_ENV === "development" && (
             <div className="mt-4 p-3 bg-gray-100 rounded-md text-xs">
               <h4 className="font-bold mb-1">Debug Info: </h4>
-              <p>isSaving: {isSaving ? "true" : "false"}</p>
-              <p>isLoading: {isInitialLoading ? "true" : "false"}</p>
-              <p>isFetching: {isFetching ? "true" : "false"}</p>
+              <p>isSaving: {isSaving (? "true" : "false"}</p>
+              <p>isLoading: {isInitialLoading (? "true" : "false"}</p>
+              <p>isFetching: {isFetching (? "true" : "false"}</p>
               <p>User ID: {currentUser?.uid || "Not logged in"}</p>
               <p>Weight Entries: {weightEntries.length}</p>
               <p>
-                Network Status: {checkNetworkStatus() ? "Online" : "Offline"}
+                Network Status: {checkNetworkStatus() (? "Online" : "Offline"}
               </p>
               <div className="flex gap-2 mt-2">
                 <button
